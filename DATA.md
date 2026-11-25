@@ -4,7 +4,7 @@ The code's licences (see README) do not cover the data. Every source keeps its o
 
 | What | Source | Licence and credit |
 |---|---|---|
-| Satellite imagery | [Sentinel-2 cloudless 2016](https://s2maps.eu), EOX IT Services GmbH | CC BY 4.0. "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)" |
+| Satellite and aerial imagery | [VersaTiles satellite](https://versatiles.org): government orthophotos, Copernicus Sentinel-2 mosaic, NASA Blue Marble | Each source's open licence, all listed with their credits at [versatiles.org/sources](https://versatiles.org/sources/). The service runs on donations. |
 | App icon | [Natural Earth](https://www.naturalearthdata.com) II with shaded relief, 1:50m | Public domain |
 | Night lights | NASA Black Marble, through NASA GIBS | Free to use; credit NASA GIBS |
 | Place names | NASA GIBS reference labels (made from OpenStreetMap data) | Free to use; credit NASA GIBS and OpenStreetMap contributors (ODbL) |

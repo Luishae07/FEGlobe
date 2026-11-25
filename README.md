@@ -35,4 +35,4 @@ Without a Mac: add the repository to [CircleCI](https://circleci.com); `.circlec
 - `FEGlobe/`: GNU AGPL-3.0 or later with an App Store exception (`FEGlobe/LICENSE`, `FEGlobe/APPSTORE-EXCEPTION.md`).
 - The app (everything else): Mozilla Public License 2.0 (`LICENSE`).
 - A built app contains the engine, so whoever distributes it also has to meet the terms of the AGPL.
-- Map data keeps its own licence: the imagery is Sentinel-2 cloudless **2016** by EOX (CC BY 4.0, commercial use allowed with attribution; the later years are non-commercial). The 3D models belong to their owners.
+- Map data keeps its own licence: the imagery is VersaTiles satellite (openly licensed aerial photos and satellite mosaics, [sources](https://versatiles.org/sources/)). The 3D models belong to their owners.

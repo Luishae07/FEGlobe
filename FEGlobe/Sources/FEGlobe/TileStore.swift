@@ -32,6 +32,14 @@ public struct GlobeImagery: Sendable {
         self.attribution = attribution
     }
 
+    /// VersaTiles satellite: official aerial photos where governments publish them openly (Germany with Berlin, and many more), satellite mosaics
+    /// elsewhere. No key; every source is openly licensed (https://versatiles.org/sources/). A donation funded service: heavy users should donate
+    /// or host the tiles themselves.
+    public static let versatiles = GlobeImagery(
+        urlTemplate: "https://tiles.versatiles.org/tiles/satellite/{z}/{x}/{y}",
+        maxZoom: 19,
+        attribution: "Imagery: VersaTiles and its sources, versatiles.org/sources")
+
     /// Sentinel-2 cloudless 2016 by EOX: 10 m a pixel, CC BY 4.0 (commercial use allowed with this attribution). The later years are for non-commercial use only.
     public static let sentinel2 = GlobeImagery(
         urlTemplate: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg",
@@ -96,6 +104,8 @@ final class TileCache<Value> {
     private var values: [TileKey: (value: Value, used: Int)] = [:]
     private var loading: Set<TileKey> = []
     private var failed: [TileKey: Date] = [:]
+    /// tiles that the source does not have (404): the tile above stands in for them
+    private var absent: Set<TileKey> = []
     var frame = 0
     var onArrival: (() -> Void)?
     var onFailure: ((Bool) -> Void)?
@@ -120,7 +130,11 @@ final class TileCache<Value> {
 
     /// the value of a tile, or of the nearest tile above it that is here, with the part of it that covers the tile
     func best(_ key: TileKey) -> (Value, SIMD4<Float>)? {
-        let (wanted, part) = key.clamped(to: maxZoom)
+        var (wanted, part) = key.clamped(to: maxZoom)
+        while wanted.z > 0 && absent.contains(wanted) { // not every place has the finest pictures
+            wanted = wanted.parent
+            part = key.clamped(to: wanted.z).1
+        }
         if let v = value(wanted) { return (v, part) }
         var above = wanted
         while above.z > 0 {
@@ -137,7 +151,7 @@ final class TileCache<Value> {
     func clear() { values.removeAll() }
 
     private func load(_ key: TileKey) {
-        if loading.count >= 8 || loading.contains(key) { return }
+        if loading.count >= 8 || loading.contains(key) || absent.contains(key) { return }
         if let when = failed[key], Date().timeIntervalSince(when) < 30 { return }
         let address = imagery.urlTemplate
             .replacingOccurrences(of: "{z}", with: String(key.z))
@@ -150,6 +164,11 @@ final class TileCache<Value> {
             defer { loading.remove(key) }
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
+                if (response as? HTTPURLResponse)?.statusCode == 404 {
+                    absent.insert(key)
+                    onArrival?() // draw again: the tile above is asked for now
+                    return
+                }
                 guard (response as? HTTPURLResponse)?.statusCode == 200,
                       let value = await Task.detached(priority: .userInitiated, operation: { Box(decode(data)) }).value.value else {
                     failed[key] = Date()

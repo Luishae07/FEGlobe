@@ -106,9 +106,8 @@ struct LicencesView: View {
                 Link("Source code", destination: URL(string: "https://github.com/Luishae07/FEGlobe")!)
             }
             Section("Satellite imagery") {
-                Text("Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0")
-                Link("s2maps.eu", destination: URL(string: "https://s2maps.eu")!)
-                Link("Licence CC BY 4.0", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
+                Text("VersaTiles satellite: official aerial photos published openly by governments, and open satellite mosaics (Copernicus Sentinel-2, NASA Blue Marble). Every source has its own credit and open licence:")
+                Link("All sources and licences", destination: URL(string: "https://versatiles.org/sources/")!)
             }
             Section("Other data") {
                 Text("Night lights and place names: NASA GIBS.")

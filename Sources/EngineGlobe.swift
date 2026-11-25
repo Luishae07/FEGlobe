@@ -60,7 +60,7 @@ struct EngineGlobe: View {
             } else if let error = status.modelError {
                 badge(error, symbol: "exclamationmark.triangle")
             }
-            Text("Imagery: \(GlobeImagery.sentinel2.attribution). Night lights and names: NASA GIBS. Terrain: Mapzen, SRTM.")
+            Text("\(GlobeImagery.versatiles.attribution). Night lights and names: NASA GIBS. Terrain: Mapzen, SRTM.")
                 .font(.system(size: 9))
                 .foregroundStyle(.white.opacity(0.8))
                 .shadow(color: .black, radius: 2)
