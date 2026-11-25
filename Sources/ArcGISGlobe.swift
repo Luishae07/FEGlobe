@@ -62,8 +62,8 @@ final class SceneHolder: ObservableObject {
 
     /// aerial photos and 3D models for the place looked at; names while they are wanted
     func show(latitude: Double, longitude: Double, distance: Double, models wanted: [MeshModel], placeNames: Bool) {
-        // photos: the first two sources whose area holds the place, only close to the ground
-        let near = distance < 40_000 ? Array(Self.sources.filter { $0.covers(latitude: latitude, longitude: longitude) }.prefix(2)) : []
+        // photos: the most local source whose area holds the place, only close to the ground (every layer costs speed)
+        let near = distance < 20_000 ? Array(Self.sources.filter { $0.covers(latitude: latitude, longitude: longitude) }.prefix(1)) : []
         for (id, layer) in photos where !near.contains(where: { $0.id == id }) {
             scene.removeOperationalLayer(layer)
             photos[id] = nil
@@ -101,16 +101,35 @@ struct ArcGISGlobe: View {
     @ObservedObject var catalog: MeshCatalog
     @AppStorage("placeNames") private var placeNames = true
     @StateObject private var holder = SceneHolder()
-    @State private var camera: Camera?
+    @State private var settle = Settle()
     @State private var showCredits = false
+
+    /// waits until the camera has rested for a moment (holding it here does not redraw the screen while the fingers move)
+    private final class Settle {
+        var task: Task<Void, Never>?
+    }
 
     var body: some View {
         SceneViewReader { proxy in
-            SceneView(scene: holder.scene, camera: $camera)
-                .onCameraChanged { new in update(from: new) }
+            SceneView(scene: holder.scene)
+                .onCameraChanged { new in
+                    settle.task?.cancel()
+                    settle.task = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 450_000_000)
+                        if !Task.isCancelled { update(from: new) }
+                    }
+                }
                 .onChange(of: model.request) { _, request in
                     guard let request else { return }
                     Task { await proxy.setViewpointCamera(Self.camera(for: request), duration: 2) }
+                }
+                .task {
+                    // coming from the other map: the same place
+                    let c = model.camera
+                    if c.distance < 10_000_000 {
+                        await proxy.setViewpointCamera(Self.camera(for: FlyRequest(latitude: c.latitude, longitude: c.longitude, distance: c.distance,
+                                                                                   heading: c.heading, tilted: model.tilted)), duration: 0)
+                    }
                 }
         }
         .overlay(alignment: .bottomLeading) {
@@ -172,6 +191,6 @@ struct ArcGISGlobe: View {
     private func refresh() {
         let c = model.camera
         holder.show(latitude: c.latitude, longitude: c.longitude, distance: c.distance,
-                    models: c.distance < 12_000 ? catalog.models(latitude: c.latitude, longitude: c.longitude) : [], placeNames: placeNames)
+                    models: c.distance < 5_000 ? catalog.models(latitude: c.latitude, longitude: c.longitude, limit: 1) : [], placeNames: placeNames)
     }
 }

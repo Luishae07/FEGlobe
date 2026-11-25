@@ -5,7 +5,7 @@ options:
 packages:
   ArcGIS:
     url: https://github.com/Esri/arcgis-maps-sdk-swift
-    exactVersion: 300.1.0
+    exactVersion: 200.8.3 # the licence string is tied to the major version of the SDK
 targets:
   Atlas:
     type: application
