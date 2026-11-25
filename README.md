@@ -26,7 +26,7 @@ The app can also use **Apple MapKit** (Settings).
 
 ## Build
 
-With a Mac: `brew install xcodegen`, `go run ./tools/icon` (draws the app icon, once), `xcodegen`, open `Atlas.xcodeproj`, choose your Apple ID as the team, run on your phone.
+With a Mac: `brew install xcodegen`, (the app icon is drawn from Natural Earth by `tools/icon`), `xcodegen`, open `Atlas.xcodeproj`, choose your Apple ID as the team, run on your phone.
 
 Without a Mac: add the repository to [CircleCI](https://circleci.com); `.circleci/config.yml` builds `Atlas.ipa` (not signed, under the job's artifacts) and tests the engine. Install the file with Sideloadly or AltStore. With a free Apple ID it runs for 7 days.
 

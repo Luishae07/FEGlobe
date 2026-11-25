@@ -510,7 +510,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         let viewProjection = projection * turn
         let sun = SIMD3<Float>(Geodesy.sunDirection(Date()))
         // near the ground the map is always lit: a city at night would be black
-        let lit: Float = options.sunlight && camera.distance > 60_000 ? 1 : 0
+        let lit: Float = options.sunlight ? Float(min(1, max(0, (camera.distance - 80_000) / 1_500_000))) : 0
         let whole = SIMD4<Float>(0, 0, 1, 1)
 
         encoder.setDepthStencilState(depth)
@@ -520,7 +520,8 @@ final class Renderer: NSObject, MTKViewDelegate {
             let (picture, uv) = found
             let dark = lit > 0 ? night.best(key) : nil
             let (namesKey, namesPart) = key.clamped(to: names.maxZoom)
-            let label = options.placeNames ? names.value(namesKey) : nil
+            // stretched far beyond their finest level the names would be giant letters: not shown there
+            let label = options.placeNames && key.z <= names.maxZoom + 1 ? names.value(namesKey) : nil
             let offset = SIMD3<Float>(m.centre - eye), centre = SIMD3<Float>(m.centre)
             var uniforms = Uniforms(viewProjection: viewProjection, offset: SIMD4(offset, 0), centre: SIMD4(centre, 0), uvBase: uv,
                                     uvNight: dark?.1 ?? whole, uvNames: label == nil ? whole : namesPart, sun: SIMD4(sun, lit))

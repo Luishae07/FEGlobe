@@ -43,8 +43,8 @@ public struct GlobeImagery: Sendable {
         maxZoom: 8, attribution: "NASA Black Marble (GIBS)")
     /// NASA GIBS reference labels: names of countries, cities and places.
     public static let placeNames = GlobeImagery(
-        urlTemplate: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Reference_Labels_15m/default/GoogleMapsCompatible_Level13/{z}/{y}/{x}.png",
-        maxZoom: 13, attribution: "Labels: NASA GIBS")
+        urlTemplate: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Reference_Labels/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png",
+        maxZoom: 9, attribution: "Labels: NASA GIBS")
 }
 
 /// Pixels of a picture as RGBA bytes.

@@ -36,18 +36,30 @@ vertex Out fe_vertex(const device Vertex *vertices [[buffer(0)]], constant Unifo
     return out;
 }
 
+// the satellite mosaic is overexposed on bright ground (deserts, snow): the highlights are pressed down, the rest stays
+static float3 soften(float3 c) {
+    float brightness = dot(c, float3(0.2126, 0.7152, 0.0722));
+    const float knee = 0.45;
+    if (brightness <= knee) return c;
+    float pressed = knee + (brightness - knee) * 0.55;
+    return c * (pressed / brightness);
+}
+
 fragment float4 fe_ground(Out in [[stage_in]], constant Uniforms &u [[buffer(1)]], texture2d<float> base [[texture(0)]],
                           texture2d<float> night [[texture(1)]], texture2d<float> names [[texture(2)]]) {
     constexpr sampler s(address::clamp_to_edge, filter::linear, mip_filter::linear);
-    float3 colour = base.sample(s, u.uvBase.xy + in.uv * u.uvBase.zw).rgb;
+    float3 colour = soften(base.sample(s, u.uvBase.xy + in.uv * u.uvBase.zw).rgb);
     float3 n = normalize(in.normal);
-    if (u.sun.w > 0.5) {
-        float day = smoothstep(-0.10, 0.28, dot(n, u.sun.xyz));
-        float3 dark = mix(colour, float3(0.039, 0.063, 0.188), 0.72);
-        float3 lights = night.sample(s, u.uvNight.xy + in.uv * u.uvNight.zw).rgb;
-        colour = mix(dark, colour, day) + lights * (1.0 - day) * 1.25;
-        float haze = pow(in.rim, 4.0) * (0.2 + 0.8 * day);
-        colour = mix(colour, float3(0.50, 0.70, 1.0), saturate(haze * 0.7));
+    if (u.sun.w > 0.001) { // sun.w: how strong the sunlight is (it fades out near the ground)
+        float day = smoothstep(-0.14, 0.14, dot(n, u.sun.xyz));
+        float3 dark = colour * 0.13 + float3(0.008, 0.014, 0.040);
+        // the night picture also shows the land by moonlight (blue and violet): only its warm, bright points are lights
+        float3 seen = night.sample(s, u.uvNight.xy + in.uv * u.uvNight.zw).rgb;
+        float3 lights = seen * smoothstep(0.24, 0.62, seen.r);
+        float3 lit = mix(dark + lights * 1.15, colour, day);
+        float haze = pow(in.rim, 4.0) * (0.15 + 0.85 * day);
+        lit = mix(lit, float3(0.50, 0.70, 1.0), saturate(haze * 0.65));
+        colour = mix(colour, lit, u.sun.w);
     }
     float4 name = names.sample(s, u.uvNames.xy + in.uv * u.uvNames.zw); // premultiplied
     colour = colour * (1.0 - name.a) + name.rgb;

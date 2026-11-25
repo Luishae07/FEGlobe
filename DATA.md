@@ -5,6 +5,7 @@ The code's licences (see README) do not cover the data. Every source keeps its o
 | What | Source | Licence and credit |
 |---|---|---|
 | Satellite imagery | [Sentinel-2 cloudless 2016](https://s2maps.eu), EOX IT Services GmbH | CC BY 4.0. "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)" |
+| App icon | [Natural Earth](https://www.naturalearthdata.com) II with shaded relief, 1:50m | Public domain |
 | Night lights | NASA Black Marble, through NASA GIBS | Free to use; credit NASA GIBS |
 | Place names | NASA GIBS reference labels (made from OpenStreetMap data) | Free to use; credit NASA GIBS and OpenStreetMap contributors (ODbL) |
 | Terrain | [Terrain Tiles on AWS](https://registry.opendata.aws/terrain-tiles/) (Mapzen, SRTM, NASA and others) | Open data with [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) |
