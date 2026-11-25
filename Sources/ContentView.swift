@@ -53,15 +53,16 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showSaved = false
     @StateObject private var saved = SavedPlaces()
+    @StateObject private var past = Past()
     @FocusState private var searching: Bool
 
     var body: some View {
         ZStack(alignment: .top) {
             Group {
                 if engine == .arcgis {
-                    ArcGISGlobe(model: model, catalog: catalog)
+                    ArcGISGlobe(model: model, catalog: catalog, past: past)
                 } else {
-                    AppleGlobe(model: model)
+                    AppleGlobe(model: model, past: past)
                 }
             }
             .ignoresSafeArea()
@@ -85,7 +86,18 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
 
+            if past.year != nil && !searching {
+                TimePanel(past: past, camera: model.camera, apple: engine == .mapkit)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 28)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+
             VStack(spacing: 12) {
+                RoundButton(symbol: "clock.arrow.circlepath", label: "Look into the past") {
+                    model.selected = nil
+                    past.year = past.year == nil ? 2000 : nil
+                }
                 RoundButton(symbol: model.tilted ? "view.2d" : "view.3d", label: "2D or 3D") { model.toggleTilt() }
                 RoundButton(symbol: "location.fill", label: "My location") {
                     locator.locate { c in
@@ -94,7 +106,7 @@ struct ContentView: View {
                 }
             }
             .padding(.trailing, 14)
-            .padding(.bottom, 44)
+            .padding(.bottom, past.year == nil ? 44 : 220)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .sheet(item: $model.selected) { place in
@@ -109,6 +121,8 @@ struct ContentView: View {
             SettingsView(engine: $engine, photoMeshes: catalog.photoMeshes, esri: catalog.esri) { model.fly(to: $0) }
         }
         .task { await catalog.load() }
+        .onChange(of: past.year) { _, _ in past.update(model.camera) }
+        .onChange(of: model.camera) { _, camera in past.update(camera) }
     }
 
     private var searchBar: some View {

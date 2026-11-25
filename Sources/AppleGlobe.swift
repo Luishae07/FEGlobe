@@ -5,6 +5,7 @@ import MapKit
 /// Apple's globe with its own 3D cities (no key needed). The 3D models of the Atlas are not shown on it.
 struct AppleGlobe: View {
     @ObservedObject var model: AtlasModel
+    @ObservedObject var past: Past
     @State private var position: MapCameraPosition = .automatic
 
     var body: some View {
@@ -13,8 +14,15 @@ struct AppleGlobe: View {
             if let place = model.selected {
                 Marker(place.name, coordinate: place.coordinate)
             }
+            // MapKit cannot raise own blocks: the buildings of the past are flat outlines
+            ForEach(past.shown) { building in
+                MapPolygon(coordinates: building.ring)
+                    .foregroundStyle((building.measured ? Color.orange : Color.gray).opacity(0.65))
+                    .stroke(.white.opacity(0.8), lineWidth: 1)
+            }
         }
-        .mapStyle(.hybrid(elevation: .realistic))
+        // today's 3D city would hide the past
+        .mapStyle(past.year == nil ? .hybrid(elevation: .realistic) : .standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControls {
             MapCompass()
             MapScaleView()

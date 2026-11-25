@@ -60,10 +60,66 @@ final class SceneHolder: ObservableObject {
         scene.initialViewpoint = Viewpoint(latitude: 30, longitude: 10, scale: 80_000_000)
     }
 
-    /// aerial photos and 3D models for the place looked at; names while they are wanted
-    func show(latitude: Double, longitude: Double, distance: Double, models wanted: [MeshModel], placeNames: Bool) {
+    // the past: a photo of the year, and buildings raised to their height (measured: orange, guessed: grey)
+    private var past: (id: String, layer: Layer)?
+    private let measured = SceneHolder.blocks(UIColor(red: 0.94, green: 0.59, blue: 0.24, alpha: 1))
+    private let guessed = SceneHolder.blocks(UIColor(red: 0.67, green: 0.69, blue: 0.73, alpha: 1))
+    var overlays: [GraphicsOverlay] { [measured, guessed] }
+
+    private static func blocks(_ colour: UIColor) -> GraphicsOverlay {
+        let overlay = GraphicsOverlay()
+        overlay.sceneProperties.surfacePlacement = .relative
+        let renderer = SimpleRenderer(symbol: SimpleFillSymbol(style: .solid, color: colour))
+        renderer.sceneProperties.extrusionMode = .baseHeight
+        renderer.sceneProperties.extrusionExpression = "[h]"
+        overlay.renderer = renderer
+        return overlay
+    }
+
+    func showBuildings(_ buildings: [OldBuilding]) {
+        measured.removeAllGraphics()
+        guessed.removeAllGraphics()
+        for building in buildings {
+            let outline = Polygon(points: building.ring.map { Point(x: $0.longitude, y: $0.latitude, spatialReference: .wgs84) })
+            (building.measured ? measured : guessed).addGraphic(Graphic(geometry: outline, attributes: ["h": building.height]))
+        }
+    }
+
+    private static func layer(for picture: OldPicture) -> Layer? {
+        if let name = picture.wmsLayer {
+            return URL(string: picture.template).map { WMSLayer(url: $0, layerNames: [name]) }
+        }
+        let address = picture.template.replacingOccurrences(of: "{z}", with: "{level}").replacingOccurrences(of: "{y}", with: "{row}")
+            .replacingOccurrences(of: "{x}", with: "{col}")
+        // only the levels the service has: nearer than that, ArcGIS enlarges the last one
+        let levels = (0...picture.maxLevel).map {
+            LevelOfDetail(level: $0, resolution: 156543.03392804097 / pow(2, Double($0)), scale: 591657527.591555 / pow(2, Double($0)))
+        }
+        let edge = 20037508.342789244
+        let info = TileInfo(dpi: 96, format: .jpg, levelsOfDetail: levels, origin: Point(x: -edge, y: edge, spatialReference: .webMercator),
+                            spatialReference: .webMercator, tileHeight: 256, tileWidth: 256)
+        return WebTiledLayer(urlTemplate: address, tileInfo: info,
+                             fullExtent: Envelope(xMin: -edge, yMin: -edge, xMax: edge, yMax: edge, spatialReference: .webMercator))
+    }
+
+    /// aerial photos and 3D models for the place looked at; names while they are wanted. year: look into the past
+    func show(latitude: Double, longitude: Double, distance: Double, models wanted: [MeshModel], placeNames: Bool, year: Int?) {
+        let picture = year.flatMap { History.picture(latitude: latitude, longitude: longitude, year: $0) }
+        if past?.id != picture?.id {
+            if let old = past { scene.removeOperationalLayer(old.layer) }
+            past = nil
+            if let picture, let layer = Self.layer(for: picture) {
+                // the names are taken off and put on again, so that they lie above the picture
+                if let names { scene.removeOperationalLayer(names) }
+                names = nil
+                past = (picture.id, layer)
+                scene.addOperationalLayer(layer)
+            }
+        }
         // photos: the most local source whose area holds the place, only close to the ground (every layer costs speed)
-        let near = distance < 20_000 ? Array(Self.sources.filter { $0.covers(latitude: latitude, longitude: longitude) }.prefix(1)) : []
+        // today's close photos stay only where the year has none of its own
+        let near = distance < 20_000 && picture == nil
+            ? Array(Self.sources.filter { $0.covers(latitude: latitude, longitude: longitude) }.prefix(1)) : []
         for (id, layer) in photos where !near.contains(where: { $0.id == id }) {
             scene.removeOperationalLayer(layer)
             photos[id] = nil
@@ -92,13 +148,14 @@ final class SceneHolder: ObservableObject {
         }
         names?.isVisible = placeNames && distance > 40_000
         shownModels = wanted.map { "\($0.title)\($0.owner.map { " · \($0)" } ?? "")" }
-        shownPhotos = near.map(\.credit)
+        shownPhotos = near.map(\.credit) + [picture?.credit, year.map { _ in "Buildings: OpenHistoricalMap" }].compactMap { $0 }
     }
 }
 
 struct ArcGISGlobe: View {
     @ObservedObject var model: AtlasModel
     @ObservedObject var catalog: MeshCatalog
+    @ObservedObject var past: Past
     @AppStorage("placeNames") private var placeNames = true
     @StateObject private var holder = SceneHolder()
     @State private var settle = Settle()
@@ -111,7 +168,7 @@ struct ArcGISGlobe: View {
 
     var body: some View {
         SceneViewReader { proxy in
-            SceneView(scene: holder.scene)
+            SceneView(scene: holder.scene, graphicsOverlays: holder.overlays)
                 .onCameraChanged { new in
                     settle.task?.cancel()
                     settle.task = Task { @MainActor in
@@ -155,7 +212,12 @@ struct ArcGISGlobe: View {
         }
         .onChange(of: placeNames) { _, _ in refresh() }
         .onChange(of: catalog.esri.count) { _, _ in refresh() }
-        .onAppear { refresh() }
+        .onChange(of: past.year) { _, _ in refresh() }
+        .onChange(of: past.version) { _, _ in holder.showBuildings(past.shown) }
+        .onAppear {
+            refresh()
+            holder.showBuildings(past.shown)
+        }
     }
 
     /// the camera that looks at a place from `distance` metres: straight down, or tilted
@@ -191,6 +253,8 @@ struct ArcGISGlobe: View {
     private func refresh() {
         let c = model.camera
         holder.show(latitude: c.latitude, longitude: c.longitude, distance: c.distance,
-                    models: c.distance < 5_000 ? catalog.models(latitude: c.latitude, longitude: c.longitude, limit: 1) : [], placeNames: placeNames)
+                    // the 3D models show today: not in the past
+                    models: c.distance < 5_000 && past.year == nil ? catalog.models(latitude: c.latitude, longitude: c.longitude, limit: 1) : [],
+                    placeNames: placeNames, year: past.year)
     }
 }
