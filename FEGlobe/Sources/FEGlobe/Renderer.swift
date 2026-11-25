@@ -192,6 +192,49 @@ final class Renderer: NSObject, MTKViewDelegate {
         redraw()
     }
 
+    // MARK: the fingers
+
+    private var glide = CGPoint.zero // points a second: the map goes on moving after a swipe, and slows down
+    private var glideSize = CGSize.zero
+    private var lastStep = Date()
+
+    /// a finger touches the globe: whatever was moving stops
+    func stopMotion() {
+        glide = .zero
+        flight = nil
+    }
+
+    /// changes the camera under the fingers
+    func move(_ change: (inout GlobeCamera, Double) -> Void) {
+        flight = nil
+        change(&camera, ground)
+        camera.clamp()
+        redraw()
+        onChange?(camera)
+    }
+
+    func swipe(velocity: CGPoint, size: CGSize) {
+        guard hypot(velocity.x, velocity.y) > 120 else { return }
+        glide = velocity
+        glideSize = size
+        lastStep = Date()
+        redraw()
+    }
+
+    private func advanceGlide() {
+        guard glide != .zero else { return }
+        let now = Date()
+        let dt = min(0.05, now.timeIntervalSince(lastStep))
+        lastStep = now
+        let middle = CGPoint(x: glideSize.width / 2, y: glideSize.height / 2)
+        camera.drag(from: middle, to: CGPoint(x: middle.x + glide.x * dt, y: middle.y + glide.y * dt), in: glideSize, ground: ground)
+        let slow = exp(-4.5 * dt)
+        glide = CGPoint(x: glide.x * slow, y: glide.y * slow)
+        if hypot(glide.x, glide.y) < 15 { glide = .zero }
+        redraw()
+        onChange?(camera)
+    }
+
     // MARK: the camera
 
     func set(_ new: GlobeCamera) {
@@ -211,6 +254,7 @@ final class Renderer: NSObject, MTKViewDelegate {
     }
 
     private func advance() {
+        advanceGlide()
         guard let f = flight else { return }
         let raw = min(1, Date().timeIntervalSince(f.start) / f.duration)
         let t = raw * raw * (3 - 2 * raw)
@@ -380,7 +424,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         guard camera.distance < 4500, flight == nil, modelTask == nil else { return }
         let here = (camera.latitude, camera.longitude)
         let key = wantedModels.map(\.id).joined(separator: "|")
-        if let tried, tried.key == key, metres(here, (tried.latitude, tried.longitude)) < 180 { return }
+        if let tried, tried.key == key, metres(here, (tried.latitude, tried.longitude)) < 160 { return }
         // the height of the ground has to be known to set the model on it
         guard let level = options.terrain ? height(latitude: here.0, longitude: here.1, zoom: 13) : 0 else { return }
         tried = (key, here.0, here.1)
@@ -393,7 +437,7 @@ final class Renderer: NSObject, MTKViewDelegate {
                     $0.modelError = nil
                 }
                 do {
-                    let pieces = try await ModelLoader.load(model, latitude: here.0, longitude: here.1, radius: 260)
+                    let pieces = try await ModelLoader.load(model, latitude: here.0, longitude: here.1, radius: 450)
                     let prepared = await Task.detached(priority: .userInitiated) {
                         Box(Renderer.prepare(pieces, latitude: here.0, longitude: here.1, level: level))
                     }.value.value

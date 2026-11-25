@@ -9,7 +9,7 @@ struct SettingsView: View {
     let open: (Place) -> Void
     @Environment(\.dismiss) private var dismiss
     @AppStorage("terrain") private var terrain = true
-    @AppStorage("sunlight") private var sunlight = true
+    @AppStorage("sunlight") private var sunlight = false
     @AppStorage("placeNames") private var placeNames = true
 
     var body: some View {

@@ -76,29 +76,25 @@ struct ContentView: View {
             .padding(.horizontal, 14)
             .padding(.top, 6)
 
-            VStack(spacing: 12) {
+            // the compass shows only when the map is turned
+            if !searching && abs(model.camera.heading.remainder(dividingBy: 360)) > 1 {
                 RoundButton(symbol: "location.north.fill", label: "North up") { model.faceNorth() }
                     .rotationEffect(.degrees(-model.camera.heading))
+                    .padding(.trailing, 14)
+                    .padding(.top, 72)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+
+            VStack(spacing: 12) {
                 RoundButton(symbol: model.tilted ? "view.2d" : "view.3d", label: "2D or 3D") { model.toggleTilt() }
                 RoundButton(symbol: "location.fill", label: "My location") {
                     locator.locate { c in
                         model.fly(to: Place(name: "My location", subtitle: "", latitude: c.latitude, longitude: c.longitude))
                     }
                 }
-                RoundButton(symbol: "bookmark.fill", label: "Saved places") {
-                    model.selected = nil
-                    showSaved = true
-                }
-                RoundButton(symbol: "dice.fill", label: "A random 3D model") {
-                    if let m = catalog.esri.prefix(300).randomElement() { model.fly(to: m.place) }
-                }
-                RoundButton(symbol: "globe.europe.africa.fill", label: "Whole Earth") {
-                    model.selected = nil
-                    model.request = FlyRequest(latitude: model.camera.latitude, longitude: model.camera.longitude, distance: 18_000_000, tilted: false)
-                }
             }
             .padding(.trailing, 14)
-            .padding(.bottom, 50)
+            .padding(.bottom, 44)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .sheet(item: $model.selected) { place in
@@ -117,8 +113,29 @@ struct ContentView: View {
 
     private var searchBar: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Search places and 3D models", text: $query)
+            Menu {
+                Button {
+                    model.selected = nil
+                    model.request = FlyRequest(latitude: model.camera.latitude, longitude: model.camera.longitude, distance: 18_000_000, tilted: false)
+                } label: { Label("Whole Earth", systemImage: "globe.europe.africa") }
+                Button {
+                    if let m = catalog.esri.prefix(300).randomElement() { model.fly(to: m.place) }
+                } label: { Label("Surprise me", systemImage: "dice") }
+                Button {
+                    model.selected = nil
+                    showSaved = true
+                } label: { Label("Saved places", systemImage: "bookmark") }
+                Divider()
+                Button {
+                    searching = false
+                    model.selected = nil
+                    showSettings = true
+                } label: { Label("Settings", systemImage: "gearshape") }
+            } label: {
+                Image(systemName: "line.3.horizontal").font(.title3).frame(width: 28, height: 28)
+            }
+            .accessibilityLabel("Menu")
+            TextField("Search", text: $query)
                 .focused($searching)
                 .submitLabel(.search)
                 .autocorrectionDisabled()
@@ -129,12 +146,7 @@ struct ContentView: View {
                     places = []
                 } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
             }
-            Button {
-                searching = false
-                model.selected = nil
-                showSettings = true
-            } label: { Image(systemName: "gearshape.fill").font(.title3) }
-                .accessibilityLabel("Settings")
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)

@@ -9,8 +9,8 @@ struct SceneLayerReader {
     let longitude: Double
     let radius: Double
 
-    private static let maxNodes = 80
-    private static let pixel = 1.4 // refine while the children are needed at this size (metres)
+    private static let maxNodes = 140
+    private static let pixel = 2.0 // refine while the children are needed at this size (metres)
 
     private struct Selected {
         var centre: [Double]

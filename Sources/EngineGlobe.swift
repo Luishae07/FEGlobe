@@ -7,7 +7,8 @@ struct EngineGlobe: View {
     @ObservedObject var model: AtlasModel
     @ObservedObject var catalog: MeshCatalog
     @AppStorage("terrain") private var terrain = true
-    @AppStorage("sunlight") private var sunlight = true
+    @AppStorage("sunlight") private var sunlight = false
+    @State private var showCredits = false
     @AppStorage("placeNames") private var placeNames = true
     @State private var camera = GlobeCamera()
     @State private var status = GlobeStatus()
@@ -48,27 +49,42 @@ struct EngineGlobe: View {
     private var information: some View {
         VStack(alignment: .leading, spacing: 4) {
             if status.offline { badge("No internet connection", symbol: "wifi.slash") }
-            if let name = status.loadingModel {
+            if status.loadingModel != nil {
                 HStack(spacing: 8) {
                     ProgressView()
-                    Text("Loading \(name)").lineLimit(2)
+                    Text("Loading 3D")
                 }
-                .padding(8)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-            } else if let name = status.shownModel {
-                badge(name, symbol: "cube.fill")
-            } else if let error = status.modelError {
-                badge(error, symbol: "exclamationmark.triangle")
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
             }
-            Text("\(GlobeImagery.versatiles.attribution). Night lights and names: NASA GIBS. Terrain: Mapzen, SRTM.")
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.8))
-                .shadow(color: .black, radius: 2)
+            // one short line, as on the well-known globes; a tap shows all credits (and who owns the 3D model on the screen)
+            Button {
+                showCredits = true
+            } label: {
+                Text("© \(status.shownModel ?? "VersaTiles · Sentinel-2 · NASA · terrain contributors")  ⓘ")
+                    .font(.system(size: 9))
+                    .lineLimit(1)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .shadow(color: .black, radius: 2)
+            }
         }
         .font(.caption2)
         .padding(.leading, 10)
         .padding(.bottom, 8)
         .padding(.trailing, 80)
+        .sheet(isPresented: $showCredits) {
+            NavigationStack {
+                LicencesView()
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showCredits = false } } }
+                    .safeAreaInset(edge: .bottom) {
+                        if let name = status.shownModel ?? status.modelError {
+                            Text(name).font(.footnote).padding().frame(maxWidth: .infinity).background(.regularMaterial)
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private func badge(_ text: String, symbol: String) -> some View {

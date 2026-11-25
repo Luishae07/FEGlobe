@@ -3,8 +3,9 @@ import SwiftUI
 import MetalKit
 import UIKit
 
-/// The globe as a SwiftUI view. Change the camera from outside and the globe flies there; the fingers change it from inside:
-/// one finger moves, two fingers pinch to zoom, turn to rotate, and move up or down together to tilt.
+/// The globe as a SwiftUI view. Change the camera from outside and the globe flies there. The fingers work as in the well-known globes: one finger moves
+/// the map (and it glides on), two fingers zoom and turn around the point between them, two fingers side by side moved up or down tilt the view,
+/// a double tap zooms in, a tap with two fingers zooms out.
 public struct FEGlobeView: UIViewRepresentable {
     @Binding var camera: GlobeCamera
     private let imagery: GlobeImagery
@@ -51,15 +52,23 @@ public struct FEGlobeView: UIViewRepresentable {
         view.isAccessibilityElement = true
         view.accessibilityLabel = "Globe"
         view.accessibilityTraits = .allowsDirectInteraction
+
         let move = UIPanGestureRecognizer(target: c, action: #selector(Coordinator.move(_:)))
         move.maximumNumberOfTouches = 1
         let tilt = UIPanGestureRecognizer(target: c, action: #selector(Coordinator.tilt(_:)))
         tilt.minimumNumberOfTouches = 2
+        tilt.maximumNumberOfTouches = 2
         let pinch = UIPinchGestureRecognizer(target: c, action: #selector(Coordinator.pinch(_:)))
         let turn = UIRotationGestureRecognizer(target: c, action: #selector(Coordinator.turn(_:)))
-        let twice = UITapGestureRecognizer(target: c, action: #selector(Coordinator.doubleTap(_:)))
+        let twice = UITapGestureRecognizer(target: c, action: #selector(Coordinator.zoomIn(_:)))
         twice.numberOfTapsRequired = 2
-        for gesture in [move, tilt, pinch, turn, twice] as [UIGestureRecognizer] {
+        let two = UITapGestureRecognizer(target: c, action: #selector(Coordinator.zoomOut(_:)))
+        two.numberOfTouchesRequired = 2
+        c.tiltGesture = tilt
+        // a tilt is decided first: only when it is not one do the fingers zoom and turn
+        pinch.require(toFail: tilt)
+        turn.require(toFail: tilt)
+        for gesture in [move, tilt, pinch, turn, twice, two] as [UIGestureRecognizer] {
             gesture.delegate = c
             view.addGestureRecognizer(gesture)
         }
@@ -82,54 +91,75 @@ public struct FEGlobeView: UIViewRepresentable {
         var renderer: Renderer?
         var reported = GlobeCamera()
         var asked: GlobeCamera?
-
-        private func change(_ edit: (inout GlobeCamera) -> Void) {
-            guard let renderer else { return }
-            var c = renderer.camera
-            edit(&c)
-            renderer.set(c)
-        }
+        weak var tiltGesture: UIPanGestureRecognizer?
 
         @objc func move(_ g: UIPanGestureRecognizer) {
-            guard let view = g.view, view.bounds.height > 0 else { return }
-            let t = g.translation(in: view)
-            g.setTranslation(.zero, in: view)
-            change { c in
-                let metres = c.distance * 2 * tan(GlobeCamera.fieldOfView / 2) / Double(view.bounds.height)
-                let sideways = -Double(t.x) * metres, ahead = Double(t.y) * metres
-                let h = c.heading * .pi / 180
-                let north = ahead * cos(h) - sideways * sin(h)
-                let east = ahead * sin(h) + sideways * cos(h)
-                c.latitude += north / GlobeCamera.radius * 180 / .pi
-                c.longitude += east / (GlobeCamera.radius * max(0.2, cos(c.latitude * .pi / 180))) * 180 / .pi
+            guard let view = g.view else { return }
+            switch g.state {
+            case .changed, .began:
+                let t = g.translation(in: view), now = g.location(in: view)
+                g.setTranslation(.zero, in: view)
+                renderer?.move { camera, ground in
+                    camera.drag(from: CGPoint(x: now.x - t.x, y: now.y - t.y), to: now, in: view.bounds.size, ground: ground)
+                }
+            case .ended:
+                renderer?.swipe(velocity: g.velocity(in: view), size: view.bounds.size)
+            default:
+                break
             }
         }
 
         @objc func tilt(_ g: UIPanGestureRecognizer) {
             let t = g.translation(in: g.view)
             g.setTranslation(.zero, in: g.view)
-            if abs(t.y) > abs(t.x) { change { $0.tilt -= Double(t.y) * 0.35 } }
+            renderer?.move { camera, _ in camera.tilt -= Double(t.y) * 0.3 }
         }
 
         @objc func pinch(_ g: UIPinchGestureRecognizer) {
-            let scale = Double(g.scale)
+            guard let view = g.view, g.numberOfTouches >= 2 else { return }
+            let scale = Double(g.scale), focus = g.location(in: view)
             g.scale = 1
-            if scale > 0 { change { $0.distance /= scale } }
+            guard scale > 0 else { return }
+            renderer?.move { camera, ground in
+                camera.keeping(focus, in: view.bounds.size, ground: ground) { $0.distance /= scale }
+            }
         }
 
         @objc func turn(_ g: UIRotationGestureRecognizer) {
-            let angle = Double(g.rotation) * 180 / .pi
+            guard let view = g.view, g.numberOfTouches >= 2 else { return }
+            let angle = Double(g.rotation) * 180 / .pi, focus = g.location(in: view)
             g.rotation = 0
-            change { $0.heading -= angle }
+            renderer?.move { camera, ground in
+                camera.keeping(focus, in: view.bounds.size, ground: ground) { $0.heading -= angle }
+            }
         }
 
-        @objc func doubleTap(_ g: UITapGestureRecognizer) {
-            guard let renderer else { return }
+        private func zoom(_ factor: Double, _ g: UIGestureRecognizer) {
+            guard let renderer, let view = g.view else { return }
             var c = renderer.camera
-            c.distance /= 2.5
-            renderer.fly(to: c, duration: 0.6)
+            c.keeping(g.location(in: view), in: view.bounds.size, ground: 0) { $0.distance /= factor }
+            renderer.fly(to: c, duration: 0.45)
         }
 
-        public func gestureRecognizer(_ a: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith b: UIGestureRecognizer) -> Bool { true }
+        @objc func zoomIn(_ g: UITapGestureRecognizer) { zoom(2.5, g) }
+        @objc func zoomOut(_ g: UITapGestureRecognizer) { zoom(0.4, g) }
+
+        public func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            renderer?.stopMotion()
+            return true
+        }
+
+        /// a tilt: two fingers side by side that move up or down
+        public override func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
+            guard g === tiltGesture, let pan = g as? UIPanGestureRecognizer, let view = g.view else { return true }
+            guard pan.numberOfTouches == 2 else { return false }
+            let a = pan.location(ofTouch: 0, in: view), b = pan.location(ofTouch: 1, in: view)
+            let v = pan.velocity(in: view)
+            return abs(a.x - b.x) > abs(a.y - b.y) && abs(v.y) > abs(v.x) * 1.5
+        }
+
+        public func gestureRecognizer(_ a: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith b: UIGestureRecognizer) -> Bool {
+            (a is UIPinchGestureRecognizer && b is UIRotationGestureRecognizer) || (a is UIRotationGestureRecognizer && b is UIPinchGestureRecognizer)
+        }
     }
 }
