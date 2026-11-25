@@ -47,6 +47,7 @@ struct ContentView: View {
     @StateObject private var catalog = MeshCatalog()
     @StateObject private var locator = Locator()
 
+    @AppStorage("map") private var engine = Engine.arcgis
     @State private var query = ""
     @State private var places: [Place] = []
     @State private var showSettings = false
@@ -56,8 +57,14 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            ArcGISGlobe(model: model, catalog: catalog)
-                .ignoresSafeArea()
+            Group {
+                if engine == .arcgis {
+                    ArcGISGlobe(model: model, catalog: catalog)
+                } else {
+                    AppleGlobe(model: model)
+                }
+            }
+            .ignoresSafeArea()
 
             VStack(spacing: 8) {
                 searchBar
@@ -99,7 +106,7 @@ struct ContentView: View {
             SavedList(saved: saved) { model.fly(to: $0) }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(photoMeshes: catalog.photoMeshes, esri: catalog.esri) { model.fly(to: $0) }
+            SettingsView(engine: $engine, photoMeshes: catalog.photoMeshes, esri: catalog.esri) { model.fly(to: $0) }
         }
         .task { await catalog.load() }
     }

@@ -2,6 +2,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Binding var engine: Engine
     let photoMeshes: [MeshModel]
     let esri: [MeshModel]
     /// flies to a model chosen in one of the lists
@@ -12,8 +13,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Map") {
-                    Toggle("Place names", isOn: $placeNames)
+                Section {
+                    Picker("Map", selection: $engine) {
+                        ForEach(Engine.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } header: {
+                    Text("Map")
+                } footer: {
+                    Text(engine == .arcgis ? "3D globe with the models of the Atlas." : "Apple's globe and Apple's own 3D cities. The Atlas models are not shown.")
+                }
+                if engine == .arcgis {
+                    Section {
+                        Toggle("Place names", isOn: $placeNames)
+                    }
                 }
                 Section("3D models in the Atlas") {
                     modelRow("Photo meshes", photoMeshes)
@@ -91,7 +105,7 @@ struct LicencesView: View {
             }
             Section("Code") {
                 LabeledContent("This app", value: "MPL-2.0")
-                LabeledContent("Map engine", value: "ArcGIS Maps SDK (Esri)")
+                LabeledContent("Maps", value: "ArcGIS Maps SDK (Esri), Apple MapKit")
                 Text("The ArcGIS Maps SDK for Swift is Esri's own software under Esri's licence; it is not open source.").font(.footnote)
                 Link("Source code of the app", destination: URL(string: "https://github.com/Luishae07/FEGlobe")!)
             }

@@ -1,6 +1,13 @@
 import SwiftUI
 import MapKit
 
+/// The map: ArcGIS (with the 3D models of the Atlas) or Apple's.
+enum Engine: String, CaseIterable, Identifiable {
+    case arcgis, mapkit
+    var id: String { rawValue }
+    var title: String { self == .arcgis ? "ArcGIS" : "Apple Maps" }
+}
+
 /// A place to fly to.
 struct Place: Identifiable, Equatable {
     let id = UUID()

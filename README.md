@@ -2,7 +2,7 @@
 
 The Mesh Atlas as an iPhone and iPad app (SwiftUI, iOS 18 or later): a 3D globe, search for places and 3D models, saved places, my location, sharing.
 
-- Map engine: **ArcGIS Maps SDK for Swift** (Esri's, not open source).
+- Maps: **ArcGIS Maps SDK for Swift** (Esri's, not open source), or **Apple Maps** (Settings).
 - Pictures: Sentinel-2 cloudless 2016 by EOX; close up, official aerial photos (`Resources/aerial.json`).
 - 3D: the Esri scene layers and photo meshes of mesh.flowsearch.org.
 
