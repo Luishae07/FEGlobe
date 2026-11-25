@@ -110,7 +110,7 @@ struct ContentView: View {
             SavedList(saved: saved) { model.fly(to: $0) }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(engine: $engine, photoCount: catalog.photoMeshes.count, esriCount: catalog.esri.count)
+            SettingsView(engine: $engine, photoMeshes: catalog.photoMeshes, esri: catalog.esri) { model.fly(to: $0) }
         }
         .task { await catalog.load() }
     }
