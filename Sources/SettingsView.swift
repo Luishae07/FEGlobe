@@ -1,38 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 import SwiftUI
-import FEGlobe
 
 struct SettingsView: View {
-    @Binding var engine: Engine
     let photoMeshes: [MeshModel]
     let esri: [MeshModel]
     /// flies to a model chosen in one of the lists
     let open: (Place) -> Void
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("terrain") private var terrain = true
-    @AppStorage("sunlight") private var sunlight = false
     @AppStorage("placeNames") private var placeNames = true
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("Globe", selection: $engine) {
-                        ForEach(Engine.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                } header: {
-                    Text("Globe")
-                } footer: {
-                    Text(engine == .feglobe ? "Our own open source globe with the 3D models of the Atlas." : "Apple's globe and Apple's own 3D cities.")
-                }
-                if engine == .feglobe {
-                    Section("FEGlobe") {
-                        Toggle("Terrain", isOn: $terrain)
-                        Toggle("Sunlight and city lights", isOn: $sunlight)
-                        Toggle("Place names", isOn: $placeNames)
-                    }
+                Section("Map") {
+                    Toggle("Place names", isOn: $placeNames)
                 }
                 Section("3D models in the Atlas") {
                     modelRow("Photo meshes", photoMeshes)
@@ -98,25 +79,30 @@ struct ModelList: View {
 }
 
 struct LicencesView: View {
+    /// who owns what is on the screen now
+    var onScreen: [String] = []
+
     var body: some View {
         Form {
-            Section("Code") {
-                LabeledContent("FEGlobe engine", value: "AGPL-3.0-or-later")
-                LabeledContent("App", value: "MPL-2.0")
-                Text("The engine has an additional permission for distribution through the App Store.").font(.footnote)
-                Link("Source code", destination: URL(string: "https://github.com/Luishae07/FEGlobe")!)
-            }
-            Section("Satellite imagery") {
-                Text("Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0")
-                DisclosureGroup("Aerial photos (close up)") {
-                    ForEach(Array(Set(GlobeCredits.aerialPhotos)).sorted(), id: \.self) { Text($0).font(.footnote) }
+            if !onScreen.isEmpty {
+                Section("On the screen") {
+                    ForEach(onScreen, id: \.self) { Text($0).font(.footnote) }
                 }
             }
-            Section("Other data") {
-                Text("Night lights and place names: NASA GIBS.")
-                Text("Terrain: Terrain Tiles on AWS (Mapzen, SRTM, NASA and others).")
+            Section("Code") {
+                LabeledContent("This app", value: "MPL-2.0")
+                LabeledContent("Map engine", value: "ArcGIS Maps SDK (Esri)")
+                Text("The ArcGIS Maps SDK for Swift is Esri's own software under Esri's licence; it is not open source.").font(.footnote)
+                Link("Source code of the app", destination: URL(string: "https://github.com/Luishae07/FEGlobe")!)
+            }
+            Section("Pictures and terrain") {
+                Text("Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0")
+                Text("Close up: aerial photos of the government services named on the screen.")
+                Text("Names: NASA GIBS. Terrain: Esri World Elevation.")
                 Text("App icon: Natural Earth (public domain).")
-                Text("3D models belong to their owners, who are named on the globe.")
+            }
+            Section("3D models") {
+                Text("They belong to their owners, who are named on the screen.")
                 Link("Mesh Atlas", destination: URL(string: "https://mesh.flowsearch.org")!)
             }
         }

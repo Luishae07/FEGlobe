@@ -1,18 +1,19 @@
 name: Atlas
 options:
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "18.0"
 packages:
-  FEGlobe:
-    path: FEGlobe
+  ArcGIS:
+    url: https://github.com/Esri/arcgis-maps-sdk-swift
+    exactVersion: 300.1.0
 targets:
   Atlas:
     type: application
     platform: iOS
     sources: [Sources, Resources]
     dependencies:
-      - package: FEGlobe
-        product: FEGlobe
+      - package: ArcGIS
+        product: ArcGIS
     info:
       path: Info.plist
       properties:

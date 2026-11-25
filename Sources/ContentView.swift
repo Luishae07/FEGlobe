@@ -46,7 +46,6 @@ struct ContentView: View {
     @StateObject private var model = AtlasModel()
     @StateObject private var catalog = MeshCatalog()
     @StateObject private var locator = Locator()
-    @AppStorage("engine") private var engine = Engine.feglobe
 
     @State private var query = ""
     @State private var places: [Place] = []
@@ -57,14 +56,8 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Group {
-                if engine == .feglobe {
-                    EngineGlobe(model: model, catalog: catalog)
-                } else {
-                    AppleGlobe(model: model)
-                }
-            }
-            .ignoresSafeArea()
+            ArcGISGlobe(model: model, catalog: catalog)
+                .ignoresSafeArea()
 
             VStack(spacing: 8) {
                 searchBar
@@ -106,7 +99,7 @@ struct ContentView: View {
             SavedList(saved: saved) { model.fly(to: $0) }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(engine: $engine, photoMeshes: catalog.photoMeshes, esri: catalog.esri) { model.fly(to: $0) }
+            SettingsView(photoMeshes: catalog.photoMeshes, esri: catalog.esri) { model.fly(to: $0) }
         }
         .task { await catalog.load() }
     }

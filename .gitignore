@@ -1,5 +1,7 @@
 *.xcodeproj/
 Info.plist
+# the ArcGIS licence string, written when the app is built
+Sources/Secrets.swift
 build/
 Payload/
 *.ipa

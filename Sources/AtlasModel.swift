@@ -1,13 +1,6 @@
 import SwiftUI
 import MapKit
 
-/// The globe engine that draws the Earth: our own FEGlobe, or Apple's MapKit with its 3D cities.
-enum Engine: String, CaseIterable, Identifiable {
-    case feglobe, mapkit
-    var id: String { rawValue }
-    var title: String { self == .feglobe ? "FEGlobe" : "Apple MapKit" }
-}
-
 /// A place to fly to.
 struct Place: Identifiable, Equatable {
     let id = UUID()
