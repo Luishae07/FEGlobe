@@ -25,11 +25,16 @@ public struct GlobeImagery: Sendable {
     public var urlTemplate: String
     public var maxZoom: Int
     public var attribution: String
+    /// a second source for the tiles that the first one does not have, up to `fallbackMaxZoom`
+    public var fallbackTemplate: String?
+    public var fallbackMaxZoom: Int
 
-    public init(urlTemplate: String, maxZoom: Int, attribution: String) {
+    public init(urlTemplate: String, maxZoom: Int, attribution: String, fallbackTemplate: String? = nil, fallbackMaxZoom: Int = 0) {
         self.urlTemplate = urlTemplate
         self.maxZoom = maxZoom
         self.attribution = attribution
+        self.fallbackTemplate = fallbackTemplate
+        self.fallbackMaxZoom = fallbackMaxZoom
     }
 
     /// VersaTiles satellite: official aerial photos where governments publish them openly (Germany with Berlin, and many more), satellite mosaics
@@ -38,7 +43,8 @@ public struct GlobeImagery: Sendable {
     public static let versatiles = GlobeImagery(
         urlTemplate: "https://tiles.versatiles.org/tiles/satellite/{z}/{x}/{y}",
         maxZoom: 19,
-        attribution: "Imagery: VersaTiles and its sources, versatiles.org/sources")
+        attribution: "Imagery: VersaTiles and its sources, versatiles.org/sources; where it has none: Sentinel-2 cloudless - https://s2maps.eu by EOX (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0",
+        fallbackTemplate: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg", fallbackMaxZoom: 14)
 
     /// Sentinel-2 cloudless 2016 by EOX: 10 m a pixel, CC BY 4.0 (commercial use allowed with this attribution). The later years are for non-commercial use only.
     public static let sentinel2 = GlobeImagery(
@@ -153,24 +159,31 @@ final class TileCache<Value> {
     private func load(_ key: TileKey) {
         if loading.count >= 8 || loading.contains(key) || absent.contains(key) { return }
         if let when = failed[key], Date().timeIntervalSince(when) < 30 { return }
-        let address = imagery.urlTemplate
-            .replacingOccurrences(of: "{z}", with: String(key.z))
-            .replacingOccurrences(of: "{x}", with: String(key.x))
-            .replacingOccurrences(of: "{y}", with: String(key.y))
-        guard let url = URL(string: address) else { return }
+        func address(_ template: String) -> URL? {
+            URL(string: template
+                .replacingOccurrences(of: "{z}", with: String(key.z))
+                .replacingOccurrences(of: "{x}", with: String(key.x))
+                .replacingOccurrences(of: "{y}", with: String(key.y)))
+        }
+        guard let url = address(imagery.urlTemplate) else { return }
+        let second = key.z <= imagery.fallbackMaxZoom ? imagery.fallbackTemplate.flatMap { address($0) } : nil
         loading.insert(key)
         let decode = decode
         Task {
             defer { loading.remove(key) }
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
+                var (data, response) = try await URLSession.shared.data(from: url)
+                if (response as? HTTPURLResponse)?.statusCode == 404, let second {
+                    (data, response) = try await URLSession.shared.data(from: second)
+                }
                 if (response as? HTTPURLResponse)?.statusCode == 404 {
                     absent.insert(key)
                     onArrival?() // draw again: the tile above is asked for now
                     return
                 }
+                let received = data
                 guard (response as? HTTPURLResponse)?.statusCode == 200,
-                      let value = await Task.detached(priority: .userInitiated, operation: { Box(decode(data)) }).value.value else {
+                      let value = await Task.detached(priority: .userInitiated, operation: { Box(decode(received)) }).value.value else {
                     failed[key] = Date()
                     return
                 }

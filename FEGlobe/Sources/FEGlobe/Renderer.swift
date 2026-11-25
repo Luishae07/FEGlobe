@@ -515,6 +515,13 @@ final class Renderer: NSObject, MTKViewDelegate {
 
         encoder.setDepthStencilState(depth)
         encoder.setRenderPipelineState(groundPipeline)
+        // The terrain is coarse (and in cities partly higher than the streets), so it would cover the lower parts of a model. While a model is shown, the
+        // ground is drawn into the far half of the depth range and the model into the near half: the model is always in front of the ground.
+        let size = view.drawableSize
+        func depthRange(_ from: Double, _ to: Double) {
+            encoder.setViewport(MTLViewport(originX: 0, originY: 0, width: Double(size.width), height: Double(size.height), znear: from, zfar: to))
+        }
+        if drawn != nil { depthRange(0.5, 1) }
         for key in visibleTiles(eye: eye, forward: forward, right: right, up: up, aspect: aspect, height: Double(view.drawableSize.height)) {
             guard let found = base.best(key), let m = mesh(key) else { continue }
             let (picture, uv) = found
@@ -534,6 +541,7 @@ final class Renderer: NSObject, MTKViewDelegate {
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: indexCount, indexType: .uint16, indexBuffer: indices, indexBufferOffset: 0)
         }
         if let model = drawn {
+            depthRange(0, 0.5)
             encoder.setRenderPipelineState(modelPipeline)
             let offset = SIMD3<Float>(model.anchor - eye), centre = SIMD3<Float>(model.anchor)
             var uniforms = Uniforms(viewProjection: viewProjection, offset: SIMD4(offset, 0), centre: SIMD4(centre, 0), uvBase: whole,

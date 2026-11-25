@@ -108,6 +108,7 @@ struct LicencesView: View {
             Section("Satellite imagery") {
                 Text("VersaTiles satellite: official aerial photos published openly by governments, and open satellite mosaics (Copernicus Sentinel-2, NASA Blue Marble). Every source has its own credit and open licence:")
                 Link("All sources and licences", destination: URL(string: "https://versatiles.org/sources/")!)
+                Text("Where VersaTiles has no picture: Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0")
             }
             Section("Other data") {
                 Text("Night lights and place names: NASA GIBS.")
