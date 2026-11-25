@@ -98,6 +98,8 @@ fun AtlasScreen() {
     var credits by remember { mutableStateOf(listOf<String>()) }
     var photo by remember { mutableStateOf(listOf<MeshModel>()) }
     var esri by remember { mutableStateOf(listOf<MeshModel>()) }
+    var year by remember { mutableStateOf<Int?>(null) } // null: today
+    val past = rememberPast(year, camera)
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -122,9 +124,9 @@ fun AtlasScreen() {
     Box(Modifier.fillMaxSize()) {
         // the map stays alive behind the other pages
         if (useLibre) {
-            LibreMap(camera, request, onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
+            LibreMap(camera, request, year, past.shown, onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
         } else {
-            ArcGISMap(camera, request, photo + esri, placeNames, onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
+            ArcGISMap(camera, request, photo + esri, placeNames, year, past.shown, onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
         }
 
         Column(Modifier.statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp).align(Alignment.TopCenter)) {
@@ -146,8 +148,14 @@ fun AtlasScreen() {
             }
         }
 
-        Column(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 14.dp, bottom = if (selected != null) 190.dp else 40.dp),
+        Column(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 14.dp, bottom = if (selected != null) 190.dp else if (year != null) 230.dp else 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            FloatingActionButton(onClick = {
+                if (year == null) {
+                    selected = null
+                    year = 2000
+                } else year = null
+            }) { Text("⏳", style = MaterialTheme.typography.titleLarge) }
             FloatingActionButton(onClick = {
                 tilted = !tilted
                 go(camera.latitude, camera.longitude, camera.distance, camera.heading, tilted)
@@ -158,7 +166,14 @@ fun AtlasScreen() {
             }) { Text("◎", style = MaterialTheme.typography.headlineSmall) }
         }
 
-        if (credits.isNotEmpty() && selected == null) {
+        year?.let { y ->
+            if (selected == null) {
+                TimePanel(y, camera, past.status, onYear = { year = it }, onClose = { year = null },
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(10.dp))
+            }
+        }
+
+        if (credits.isNotEmpty() && selected == null && year == null) {
             Text("© " + credits.first(), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = androidx.compose.ui.graphics.Color.White,
                 modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 10.dp, bottom = 22.dp).widthIn(max = 260.dp))
         }

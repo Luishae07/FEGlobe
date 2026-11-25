@@ -7,6 +7,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.arcgismaps.Color
+import com.arcgismaps.arcgisservices.LevelOfDetail
+import com.arcgismaps.mapping.layers.TileInfo
+import com.arcgismaps.geometry.Envelope
+import com.arcgismaps.geometry.Point
+import com.arcgismaps.geometry.Polygon
+import com.arcgismaps.geometry.SpatialReference
+import com.arcgismaps.mapping.symbology.ExtrusionMode
+import com.arcgismaps.mapping.symbology.SimpleFillSymbol
+import com.arcgismaps.mapping.symbology.SimpleFillSymbolStyle
+import com.arcgismaps.mapping.symbology.SimpleRenderer
+import com.arcgismaps.mapping.view.Graphic
+import com.arcgismaps.mapping.view.GraphicsOverlay
+import com.arcgismaps.mapping.view.SurfacePlacement
+import com.arcgismaps.mapping.layers.TileImageFormat
 import com.arcgismaps.mapping.ArcGISScene
 import com.arcgismaps.mapping.ArcGISTiledElevationSource
 import com.arcgismaps.mapping.Basemap
@@ -60,9 +75,50 @@ class SceneHolder(private val aerial: List<AerialSource>) {
         return WmsLayer(if (rest.isEmpty()) parts[0] else parts[0] + "?" + rest, listOf(name))
     }
 
-    /** photos and 3D models for the camera; returns the credits of what is shown */
-    fun show(camera: CameraState, models: List<MeshModel>, placeNames: Boolean): List<String> {
-        val near = if (camera.distance < 20_000) aerial.filter { it.covers(camera.latitude, camera.longitude) }.take(1) else emptyList()
+    // the past: a photo of the year, and buildings raised to their height (measured: orange, guessed: grey)
+    private var past: Pair<String, Layer>? = null
+    private val measured = blocks(Color.fromRgba(240, 150, 60, 255))
+    private val guessed = blocks(Color.fromRgba(170, 175, 185, 255))
+    val overlays = listOf(measured, guessed)
+
+    private fun blocks(colour: Color) = GraphicsOverlay().apply {
+        sceneProperties.surfacePlacement = SurfacePlacement.Relative
+        renderer = SimpleRenderer(SimpleFillSymbol(SimpleFillSymbolStyle.Solid, colour)).apply {
+            sceneProperties.extrusionMode = ExtrusionMode.BaseHeight
+            sceneProperties.extrusionExpression = "[h]"
+        }
+    }
+
+    fun showBuildings(buildings: List<OldBuilding>) {
+        measured.graphics.clear()
+        guessed.graphics.clear()
+        buildings.forEach { b ->
+            val outline = Polygon(b.ring.map { Point(it.first, it.second, SpatialReference.wgs84()) })
+            (if (b.measured) measured else guessed).graphics.add(Graphic(outline, mapOf("h" to b.height)))
+        }
+    }
+
+    private fun pastLayer(p: OldPicture): Layer {
+        p.wmsLayer?.let { return WmsLayer(p.template, listOf(it)) }
+        val template = p.template.replace("{z}", "{level}").replace("{y}", "{row}").replace("{x}", "{col}")
+        // only the levels the service has: nearer than that, ArcGIS enlarges the last one
+        val levels = (0..p.maxLevel).map { LevelOfDetail(it, 156543.03392804097 / (1 shl it), 591657527.591555 / (1 shl it)) }
+        val mercator = SpatialReference.webMercator()
+        val edge = 20037508.342789244
+        val info = TileInfo(96, TileImageFormat.Jpg, levels, Point(-edge, edge, mercator), mercator, 256, 256)
+        return WebTiledLayer.create(template, emptyList(), info, Envelope(-edge, -edge, edge, edge, spatialReference = mercator))
+    }
+
+    /** photos and 3D models for the camera; returns the credits of what is shown. year: look into the past */
+    fun show(camera: CameraState, models: List<MeshModel>, placeNames: Boolean, year: Int?): List<String> {
+        val picture = year?.let { History.picture(camera.latitude, camera.longitude, it) }
+        if (past?.first != picture?.id) {
+            past?.let { scene.operationalLayers.remove(it.second) }
+            past = picture?.let { it.id to pastLayer(it) }
+            past?.let { scene.operationalLayers.add(0, it.second) }
+        }
+        // today's close photos stay only where the year has none of its own
+        val near = if (camera.distance < 20_000 && picture == null) aerial.filter { it.covers(camera.latitude, camera.longitude) }.take(1) else emptyList()
         photos.keys.filter { id -> near.none { it.id == id } }.forEach { id -> photos.remove(id)?.let { scene.operationalLayers.remove(it) } }
         near.filter { it.id !in photos }.forEach { source ->
             layer(source)?.let {
@@ -70,7 +126,8 @@ class SceneHolder(private val aerial: List<AerialSource>) {
                 scene.operationalLayers.add(it)
             }
         }
-        val model = if (camera.distance < 5_000) {
+        // the 3D models show today: not in the past
+        val model = if (camera.distance < 5_000 && year == null) {
             models.firstOrNull { it.tiles3d && it.covers(camera.latitude, camera.longitude) }
                 ?: models.firstOrNull { !it.tiles3d && it.covers(camera.latitude, camera.longitude) }
         } else null
@@ -83,7 +140,7 @@ class SceneHolder(private val aerial: List<AerialSource>) {
         val wantNames = placeNames && camera.distance > 40_000
         if (wantNames && names !in scene.operationalLayers) scene.operationalLayers.add(names)
         if (!wantNames && names in scene.operationalLayers) scene.operationalLayers.remove(names)
-        return listOfNotNull(model?.let { "${it.title} · ${it.owner}" }) + near.map { it.credit }
+        return listOfNotNull(picture?.credit, year?.let { "Buildings: OpenHistoricalMap" }, model?.let { "${it.title} · ${it.owner}" }) + near.map { it.credit }
     }
 }
 
@@ -113,7 +170,7 @@ private fun stateOf(camera: Camera): CameraState {
 
 @Composable
 fun ArcGISMap(
-    camera: CameraState, request: FlyRequest?, models: List<MeshModel>, placeNames: Boolean,
+    camera: CameraState, request: FlyRequest?, models: List<MeshModel>, placeNames: Boolean, year: Int?, buildings: List<OldBuilding>,
     onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -124,6 +181,7 @@ fun ArcGISMap(
         arcGISScene = holder.scene,
         modifier = modifier,
         sceneViewProxy = proxy,
+        graphicsOverlays = holder.overlays,
         onCurrentViewpointCameraChanged = { latest.value = it },
     )
     // coming from the other map: the same place
@@ -142,5 +200,6 @@ fun ArcGISMap(
             abs(state.distance - camera.distance) > camera.distance * 0.1 || abs(state.heading - camera.heading) > 2
         ) onCamera(state)
     }
-    LaunchedEffect(camera, models.size, placeNames) { onCredits(holder.show(camera, models, placeNames)) }
+    LaunchedEffect(camera, models.size, placeNames, year) { onCredits(holder.show(camera, models, placeNames, year)) }
+    LaunchedEffect(buildings) { holder.showBuildings(buildings) }
 }

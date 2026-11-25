@@ -21,6 +21,18 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.FillExtrusionLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.RasterLayer
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.RasterSource
+import org.maplibre.android.style.sources.TileSet
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.cos
 import kotlin.math.ln
 import kotlin.math.max
@@ -37,7 +49,10 @@ private fun position(latitude: Double, longitude: Double, distance: Double, head
 
 /** The second map: MapLibre with the open style of OpenFreeMap (streets, names, 3D buildings; no key). */
 @Composable
-fun LibreMap(camera: CameraState, request: FlyRequest?, onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier) {
+fun LibreMap(
+    camera: CameraState, request: FlyRequest?, year: Int?, buildings: List<OldBuilding>,
+    onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val report by rememberUpdatedState(onCamera)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -83,5 +98,50 @@ fun LibreMap(camera: CameraState, request: FlyRequest?, onCamera: (CameraState) 
         val m = map ?: return@LaunchedEffect
         request?.let { m.animateCamera(CameraUpdateFactory.newCameraPosition(position(it.latitude, it.longitude, it.distance, it.heading, it.tilted)), 1800) }
     }
-    LaunchedEffect(Unit) { onCredits(listOf("OpenFreeMap © OpenMapTiles, data from OpenStreetMap")) }
+    val picture = year?.let { History.picture(camera.latitude, camera.longitude, it) }
+    LaunchedEffect(map, picture?.id, year != null) {
+        map?.getStyle { style -> showPast(style, picture, year != null) }
+        onCredits(listOfNotNull(picture?.credit, year?.let { "Buildings: OpenHistoricalMap" }, "OpenFreeMap © OpenMapTiles, data from OpenStreetMap"))
+    }
+    LaunchedEffect(map, buildings) { map?.getStyle { style -> showBuildings(style, buildings) } }
+}
+
+/** the photo of the year under the names, and today's buildings hidden while looking into the past */
+private fun showPast(style: Style, picture: OldPicture?, past: Boolean) {
+    style.layers.filter { it.id.startsWith("building") }.forEach {
+        it.setProperties(PropertyFactory.visibility(if (past) Property.NONE else Property.VISIBLE))
+    }
+    style.removeLayer("old-picture")
+    style.removeSource("old-picture")
+    if (picture == null) return
+    val template = if (picture.wmsLayer == null) picture.template else
+        "${picture.template}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${picture.wmsLayer}&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=TRUE"
+    val tiles = TileSet("2.2.0", template).apply { setMaxZoom(picture.maxLevel.toFloat()) }
+    style.addSource(RasterSource("old-picture", tiles, 256))
+    val layer = RasterLayer("old-picture", "old-picture")
+    val under = if (style.getLayer("old-buildings") != null) "old-buildings" else style.layers.firstOrNull { it is SymbolLayer }?.id
+    if (under != null) style.addLayerBelow(layer, under) else style.addLayer(layer)
+}
+
+private fun showBuildings(style: Style, buildings: List<OldBuilding>) {
+    val features = JSONArray()
+    buildings.forEach { b ->
+        val ring = JSONArray()
+        b.ring.forEach { ring.put(JSONArray().put(it.first).put(it.second)) }
+        features.put(JSONObject().put("type", "Feature")
+            .put("properties", JSONObject().put("h", b.height).put("c", if (b.measured) "#f0963c" else "#aaafb9"))
+            .put("geometry", JSONObject().put("type", "Polygon").put("coordinates", JSONArray().put(ring))))
+    }
+    val data = JSONObject().put("type", "FeatureCollection").put("features", features).toString()
+    val source = style.getSourceAs<GeoJsonSource>("old-buildings")
+    if (source != null) {
+        source.setGeoJson(data)
+    } else {
+        style.addSource(GeoJsonSource("old-buildings", data))
+        style.addLayer(FillExtrusionLayer("old-buildings", "old-buildings").withProperties(
+            PropertyFactory.fillExtrusionHeight(Expression.get("h")),
+            PropertyFactory.fillExtrusionColor(Expression.toColor(Expression.get("c"))),
+            PropertyFactory.fillExtrusionOpacity(0.92f),
+        ))
+    }
 }
