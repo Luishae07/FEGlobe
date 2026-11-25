@@ -1,0 +1,32 @@
+version: 2.1
+
+jobs:
+  build:
+    macos:
+      xcode: "16.4.0"
+    resource_class: m4pro.medium
+    steps:
+      - checkout
+      - run:
+          name: Build the app
+          command: |
+            brew install xcodegen
+            xcodegen
+            xcodebuild -project Atlas.xcodeproj -scheme Atlas -configuration Release -sdk iphoneos \
+              -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+            mkdir -p Payload
+            cp -R build/Build/Products/Release-iphoneos/Atlas.app Payload/
+            zip -qr Atlas.ipa Payload
+      - store_artifacts:
+          path: Atlas.ipa
+      - run:
+          name: Test the engine
+          command: |
+            cd FEGlobe
+            DEVICE=$(xcrun simctl list devices available | grep iPhone | head -1 | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
+            xcodebuild test -scheme FEGlobe -destination "platform=iOS Simulator,id=$DEVICE"
+
+workflows:
+  app:
+    jobs:
+      - build
