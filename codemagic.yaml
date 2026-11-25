@@ -1,0 +1,26 @@
+workflows:
+  ios-unsigned:
+    name: Build the unsigned app and test FEGlobe
+    instance_type: mac_mini_m2
+    max_build_duration: 40
+    environment:
+      xcode: latest
+    scripts:
+      - name: Build the app
+        script: |
+          set -eo pipefail
+          brew install xcodegen
+          xcodegen
+          xcodebuild -project Atlas.xcodeproj -scheme Atlas -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Atlas.app Payload/
+          zip -qr Atlas.ipa Payload
+      - name: Test the engine
+        script: |
+          set -eo pipefail
+          cd FEGlobe
+          DEVICE=$(xcrun simctl list devices available | grep iPhone | head -1 | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}')
+          xcodebuild test -scheme FEGlobe -destination "platform=iOS Simulator,id=$DEVICE"
+    artifacts:
+      - Atlas.ipa
