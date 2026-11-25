@@ -15,7 +15,7 @@ struct AtlasApp: App {
         }
     }
 
-    var body: some Scene {
+    var body: some SwiftUI.Scene { // ArcGIS has a type called Scene too
         WindowGroup {
             ContentView()
         }
