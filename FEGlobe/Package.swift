@@ -7,7 +7,7 @@ let package = Package(
     platforms: [.iOS(.v17)],
     products: [.library(name: "FEGlobe", targets: ["FEGlobe"])],
     targets: [
-        .target(name: "FEGlobe"),
+        .target(name: "FEGlobe", resources: [.process("Resources")]),
         .testTarget(name: "FEGlobeTests", dependencies: ["FEGlobe"])
     ]
 )

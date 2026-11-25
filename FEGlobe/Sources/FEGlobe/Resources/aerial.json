@@ -1,0 +1,278 @@
+[
+ {
+  "id": "berlin2024",
+  "credit": "Geoportal Berlin (dl-de/zero-2.0)",
+  "template": "https://gdi.berlin.de/services/wms/truedop_2024?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=truedop_2024\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   13.09,
+   52.34,
+   13.76,
+   52.68
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "luxembourg",
+  "credit": "Administration du cadastre, Luxembourg",
+  "template": "https://wmts.geoportail.lu/opendata/service?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=ortho_latest\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   5.74,
+   49.45,
+   6.53,
+   50.18
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "switzerland",
+  "credit": "swisstopo",
+  "template": "https://wms.geo.admin.ch/?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=ch.swisstopo.swissimage\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   5.96,
+   45.82,
+   10.49,
+   47.81
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "netherlands",
+  "credit": "PDOK / Beeldmateriaal Nederland (CC BY 4.0)",
+  "template": "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=Actueel_orthoHR\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   3.36,
+   50.75,
+   7.23,
+   53.55
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "flanders",
+  "credit": "Digitaal Vlaanderen",
+  "template": "https://geo.api.vlaanderen.be/omw/wms?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=OMWRGB23VL\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   2.54,
+   50.68,
+   5.92,
+   51.5
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "wallonia",
+  "credit": "Service public de Wallonie",
+  "template": "https://geoservices.wallonie.be/arcgis/services/IMAGERIE/ORTHO_LAST/MapServer/WMSServer?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=0\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   2.85,
+   49.49,
+   6.41,
+   50.82
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "saarland-nrw",
+  "credit": "Geobasis NRW (dl-de/zero-2.0)",
+  "template": "https://www.wms.nrw.de/geobasis/wms_nw_dop?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=nw_dop_rgb\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   5.87,
+   50.32,
+   9.46,
+   52.53
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "brandenburg",
+  "credit": "GeoBasis-DE/LGB (dl-de/by-2.0)",
+  "template": "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=bebb_dop20c\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   11.27,
+   51.36,
+   14.77,
+   53.56
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "saxony",
+  "credit": "GeoSN, Sachsen (dl-de/by-2.0)",
+  "template": "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=sn_dop_020\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   11.87,
+   50.17,
+   15.04,
+   51.69
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "thuringia",
+  "credit": "GDI-Th (dl-de/by-2.0)",
+  "template": "https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=th_dop\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   9.87,
+   50.2,
+   12.65,
+   51.65
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "saxony-anhalt",
+  "credit": "GeoBasis-DE/LVermGeo ST (dl-de/by-2.0)",
+  "template": "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=lsa_lvermgeo_dop20_2\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   10.56,
+   50.94,
+   13.19,
+   53.04
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "hesse",
+  "credit": "HVBG Hessen (dl-de/zero-2.0)",
+  "template": "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=he_dop20_rgb\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   7.77,
+   49.39,
+   10.24,
+   51.66
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "rhineland",
+  "credit": "GeoBasis-DE/LVermGeoRP (dl-de/by-2.0)",
+  "template": "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=rp_dop20\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   6.11,
+   48.97,
+   8.51,
+   50.94
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "bavaria",
+  "credit": "Bayerische Vermessungsverwaltung (CC BY 4.0)",
+  "template": "https://geoservices.bayern.de/od/wms/dop/v1/dop40?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=by_dop40c\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   8.97,
+   47.27,
+   13.84,
+   50.57
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "lower-saxony",
+  "credit": "LGLN Niedersachsen (CC BY 4.0)",
+  "template": "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=ni_dop20\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   6.65,
+   51.29,
+   11.6,
+   53.9
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "mecklenburg",
+  "credit": "GeoBasis-DE/M-V",
+  "template": "https://www.geodaten-mv.de/dienste/adv_dop?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=mv_dop\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   10.59,
+   53.11,
+   14.42,
+   54.69
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "austria",
+  "credit": "basemap.at (CC BY 4.0)",
+  "template": "https://mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg",
+  "box": [
+   9.53,
+   46.37,
+   17.17,
+   49.02
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "czechia",
+  "credit": "ČÚZK",
+  "template": "https://ags.cuzk.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=0\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   12.09,
+   48.55,
+   18.86,
+   51.06
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "poland",
+  "credit": "GUGiK, geoportal.gov.pl",
+  "template": "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=Raster\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   14.12,
+   49,
+   24.15,
+   54.84
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "spain",
+  "credit": "PNOA, IGN España (CC BY 4.0)",
+  "template": "https://www.ign.es/wms-inspire/pnoa-ma?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=OI.OrthoimageCoverage\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   -9.35,
+   35.95,
+   3.35,
+   43.8
+  ],
+  "maxZoom": 19
+ },
+ {
+  "id": "france",
+  "credit": "IGN, Géoplateforme (Licence Ouverte)",
+  "template": "https://data.geopf.fr/wms-r/wms?SERVICE=WMS\u0026VERSION=1.3.0\u0026REQUEST=GetMap\u0026LAYERS=ORTHOIMAGERY.ORTHOPHOTOS\u0026STYLES=\u0026CRS=EPSG:3857\u0026BBOX={bbox}\u0026WIDTH=256\u0026HEIGHT=256\u0026FORMAT=image/png\u0026TRANSPARENT=TRUE",
+  "box": [
+   -5.15,
+   41.33,
+   8.24,
+   51.09
+  ],
+  "maxZoom": 20
+ },
+ {
+  "id": "japan",
+  "credit": "Geospatial Information Authority of Japan (GSI)",
+  "template": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
+  "box": [
+   128,
+   30,
+   146,
+   45.6
+  ],
+  "maxZoom": 18
+ },
+ {
+  "id": "usa",
+  "credit": "USGS / USDA NAIP (public domain)",
+  "template": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox={bbox}\u0026bboxSR=3857\u0026imageSR=3857\u0026size=256,256\u0026format=png\u0026f=image",
+  "box": [
+   -124.8,
+   24.5,
+   -66.9,
+   49.4
+  ],
+  "maxZoom": 18
+ }
+]

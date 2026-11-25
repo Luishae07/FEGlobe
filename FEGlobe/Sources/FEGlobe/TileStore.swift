@@ -37,15 +37,6 @@ public struct GlobeImagery: Sendable {
         self.fallbackMaxZoom = fallbackMaxZoom
     }
 
-    /// VersaTiles satellite: official aerial photos where governments publish them openly (Germany with Berlin, and many more), satellite mosaics
-    /// elsewhere. No key; every source is openly licensed (https://versatiles.org/sources/). A donation funded service: heavy users should donate
-    /// or host the tiles themselves.
-    public static let versatiles = GlobeImagery(
-        urlTemplate: "https://tiles.versatiles.org/tiles/satellite/{z}/{x}/{y}",
-        maxZoom: 19,
-        attribution: "Imagery: VersaTiles and its sources, versatiles.org/sources; where it has none: Sentinel-2 cloudless - https://s2maps.eu by EOX (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0",
-        fallbackTemplate: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg", fallbackMaxZoom: 14)
-
     /// Sentinel-2 cloudless 2016 by EOX: 10 m a pixel, CC BY 4.0 (commercial use allowed with this attribution). The later years are for non-commercial use only.
     public static let sentinel2 = GlobeImagery(
         urlTemplate: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg",
@@ -124,6 +115,23 @@ final class TileCache<Value> {
 
     var maxZoom: Int { imagery.maxZoom }
 
+    /// when set, a tile is got this way instead of from the address of the imagery
+    var custom: (@Sendable (TileKey) async -> Box<Value?>)?
+
+    /// like `best`, but never goes above `lowest` and asks for nothing else: for layers that exist only close up
+    func closeUp(_ key: TileKey, finest: Int, lowest: Int) -> (Value, SIMD4<Float>)? {
+        var wanted = key.clamped(to: finest).0
+        if let v = value(wanted) { return (v, key.clamped(to: wanted.z).1) }
+        while wanted.z > lowest {
+            wanted = wanted.parent
+            if let entry = values[wanted] {
+                values[wanted] = (entry.value, frame)
+                return (entry.value, key.clamped(to: wanted.z).1)
+            }
+        }
+        return nil
+    }
+
     /// the value of a tile if it is here, else nil (and it is asked for)
     func value(_ key: TileKey) -> Value? {
         if let entry = values[key] {
@@ -159,6 +167,20 @@ final class TileCache<Value> {
     private func load(_ key: TileKey) {
         if loading.count >= 8 || loading.contains(key) || absent.contains(key) { return }
         if let when = failed[key], Date().timeIntervalSince(when) < 30 { return }
+        if let custom {
+            loading.insert(key)
+            Task {
+                defer { loading.remove(key) }
+                if let value = await custom(key).value {
+                    values[key] = (value, frame)
+                    onArrival?()
+                    trim()
+                } else {
+                    failed[key] = Date()
+                }
+            }
+            return
+        }
         func address(_ template: String) -> URL? {
             URL(string: template
                 .replacingOccurrences(of: "{z}", with: String(key.z))

@@ -16,7 +16,7 @@ public struct FEGlobeView: UIViewRepresentable {
     /// - Parameters:
     ///   - models: the 3D models that cover the place looked at, the best first; they are loaded when the eye is near the ground
     ///   - status: what is being loaded, and whether the phone is offline
-    public init(camera: Binding<GlobeCamera>, imagery: GlobeImagery = .versatiles, options: GlobeOptions = GlobeOptions(),
+    public init(camera: Binding<GlobeCamera>, imagery: GlobeImagery = .sentinel2, options: GlobeOptions = GlobeOptions(),
                 models: [GlobeModel] = [], status: Binding<GlobeStatus>? = nil) {
         _camera = camera
         self.imagery = imagery

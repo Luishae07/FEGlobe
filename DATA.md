@@ -4,7 +4,7 @@ The code's licences (see README) do not cover the data. Every source keeps its o
 
 | What | Source | Licence and credit |
 |---|---|---|
-| Satellite and aerial imagery | [VersaTiles satellite](https://versatiles.org): government orthophotos, Copernicus Sentinel-2 mosaic, NASA Blue Marble | Each source's open licence, all listed with their credits at [versatiles.org/sources](https://versatiles.org/sources/). The service runs on donations. |
+| Aerial photos (close up) | The government services listed in `FEGlobe/Sources/FEGlobe/Resources/aerial.json`, asked directly by the phone | Each publisher's own terms; credit as named in that file. **Check each licence before releasing**: not all have been verified. |
 | App icon | [Natural Earth](https://www.naturalearthdata.com) II with shaded relief, 1:50m | Public domain |
 | Imagery where VersaTiles has none | [Sentinel-2 cloudless 2016](https://s2maps.eu), EOX IT Services GmbH | CC BY 4.0. "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)" |
 | Night lights | NASA Black Marble, through NASA GIBS | Free to use; credit NASA GIBS |

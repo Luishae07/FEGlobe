@@ -15,6 +15,7 @@ struct Uniforms {
     float4 uvNight;
     float4 uvNames;
     float4 sun;              // direction to the sun; w: 1 = sunlight on
+    float4 uvAerial;
 };
 
 struct Out {
@@ -37,9 +38,11 @@ vertex Out fe_vertex(const device Vertex *vertices [[buffer(0)]], constant Unifo
 }
 
 fragment float4 fe_ground(Out in [[stage_in]], constant Uniforms &u [[buffer(1)]], texture2d<float> base [[texture(0)]],
-                          texture2d<float> night [[texture(1)]], texture2d<float> names [[texture(2)]]) {
+                          texture2d<float> night [[texture(1)]], texture2d<float> names [[texture(2)]], texture2d<float> aerial [[texture(3)]]) {
     constexpr sampler s(address::clamp_to_edge, filter::linear, mip_filter::linear);
     float3 colour = base.sample(s, u.uvBase.xy + in.uv * u.uvBase.zw).rgb;
+    float4 photo = aerial.sample(s, u.uvAerial.xy + in.uv * u.uvAerial.zw); // premultiplied: transparent where there is no photo
+    colour = colour * (1.0 - photo.a) + photo.rgb;
     float3 n = normalize(in.normal);
     if (u.sun.w > 0.001) { // sun.w: how strong the sunlight is (it fades out near the ground)
         float day = smoothstep(-0.14, 0.14, dot(n, u.sun.xyz));

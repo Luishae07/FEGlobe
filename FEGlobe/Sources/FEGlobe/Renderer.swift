@@ -41,6 +41,7 @@ private struct Uniforms {
     var uvNight: SIMD4<Float>
     var uvNames: SIMD4<Float>
     var sun: SIMD4<Float>
+    var uvAerial: SIMD4<Float>
 }
 
 private struct Mesh {
@@ -95,6 +96,7 @@ final class Renderer: NSObject, MTKViewDelegate {
     private let night: TileCache<MTLTexture>
     private let names: TileCache<MTLTexture>
     private let elevation: TileCache<Elevation>
+    private let aerial: TileCache<MTLTexture>
     private var meshes: [TileKey: Mesh] = [:]
     private var flight: Flight?
     private var ground = 0.0
@@ -155,7 +157,10 @@ final class Renderer: NSObject, MTKViewDelegate {
         night = TileCache(imagery: .nightLights, limit: 80) { Pixels.decode($0)?.texture(box.value) }
         names = TileCache(imagery: .placeNames, limit: 120) { Pixels.decode($0, brightnessIsAlpha: true)?.texture(box.value) }
         elevation = TileCache(imagery: Elevation.source, limit: 120) { Elevation.decode($0) }
+        aerial = TileCache(imagery: imagery, limit: 240) { _ in nil }
         super.init()
+        aerial.custom = { key in Box(await Aerial.picture(key, device: box.value)) }
+        aerial.onArrival = { [weak self] in self?.redraw() }
         base.onArrival = { [weak self] in self?.redraw() }
         night.onArrival = { [weak self] in self?.redraw() }
         names.onArrival = { [weak self] in self?.redraw() }
@@ -188,6 +193,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         night.clear()
         names.clear()
         elevation.clear()
+        aerial.clear()
         removeModel()
         redraw()
     }
@@ -377,7 +383,9 @@ final class Renderer: NSObject, MTKViewDelegate {
             }
             let size = 2 * .pi * radius * cos(lat * .pi / 180) / Double(1 << key.z)
             let away = max(simd_distance(eye, centre) - reach * 0.7, eyeLength - radius - ground)
-            if key.z < base.maxZoom && (key.z < 3 || size / max(1, away) * pixels > 420) {
+            // where there are aerial photos the tiles become finer than the satellite map has them
+            let finest = max(base.maxZoom, Aerial.finest(key) ?? 0)
+            if key.z < finest && (key.z < 3 || size / max(1, away) * pixels > 420) {
                 for dy in 0...1 {
                     for dx in 0...1 { open.append(TileKey(z: key.z + 1, x: key.x * 2 + dx, y: key.y * 2 + dy)) }
                 }
@@ -542,6 +550,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         dirty -= 1
         for cache in [base, night, names] { cache.frame += 1 }
         elevation.frame += 1
+        aerial.frame += 1
         let (eye, forward, right, up) = camera.frame(ground: ground)
         let aspect = Double(view.drawableSize.width / view.drawableSize.height)
         let altitude = simd_length(eye) - GlobeCamera.radius - ground
@@ -574,8 +583,11 @@ final class Renderer: NSObject, MTKViewDelegate {
             // stretched far beyond their finest level the names would be giant letters: not shown there
             let label = options.placeNames && key.z <= names.maxZoom + 1 ? names.value(namesKey) : nil
             let offset = SIMD3<Float>(m.centre - eye), centre = SIMD3<Float>(m.centre)
+            let photo = Aerial.finest(key).flatMap { aerial.closeUp(key, finest: $0, lowest: Aerial.firstZoom) }
             var uniforms = Uniforms(viewProjection: viewProjection, offset: SIMD4(offset, 0), centre: SIMD4(centre, 0), uvBase: uv,
-                                    uvNight: dark?.1 ?? whole, uvNames: label == nil ? whole : namesPart, sun: SIMD4(sun, lit))
+                                    uvNight: dark?.1 ?? whole, uvNames: label == nil ? whole : namesPart, sun: SIMD4(sun, lit),
+                                    uvAerial: photo?.1 ?? whole)
+            encoder.setFragmentTexture(photo?.0 ?? clear, index: 3)
             encoder.setVertexBuffer(m.buffer, offset: 0, index: 0)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
@@ -589,7 +601,7 @@ final class Renderer: NSObject, MTKViewDelegate {
             encoder.setRenderPipelineState(modelPipeline)
             let offset = SIMD3<Float>(model.anchor - eye), centre = SIMD3<Float>(model.anchor)
             var uniforms = Uniforms(viewProjection: viewProjection, offset: SIMD4(offset, 0), centre: SIMD4(centre, 0), uvBase: whole,
-                                    uvNight: whole, uvNames: whole, sun: SIMD4(sun, 0))
+                                    uvNight: whole, uvNames: whole, sun: SIMD4(sun, 0), uvAerial: whole)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
             for piece in model.pieces {
                 encoder.setVertexBuffer(piece.vertices, offset: 0, index: 0)

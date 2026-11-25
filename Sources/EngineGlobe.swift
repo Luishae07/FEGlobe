@@ -62,7 +62,7 @@ struct EngineGlobe: View {
             Button {
                 showCredits = true
             } label: {
-                Text("© \(status.shownModel ?? "VersaTiles · Sentinel-2 · NASA · terrain contributors")  ⓘ")
+                Text("© \(status.shownModel ?? "Official aerial photos · Sentinel-2 by EOX · NASA · terrain contributors")  ⓘ")
                     .font(.system(size: 9))
                     .lineLimit(1)
                     .foregroundStyle(.white.opacity(0.85))
