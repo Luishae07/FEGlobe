@@ -150,7 +150,7 @@ public struct FEGlobeView: UIViewRepresentable {
         }
 
         /// a tilt: two fingers side by side that move up or down
-        public override func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
+        public func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
             guard g === tiltGesture, let pan = g as? UIPanGestureRecognizer, let view = g.view else { return true }
             guard pan.numberOfTouches == 2 else { return false }
             let a = pan.location(ofTouch: 0, in: view), b = pan.location(ofTouch: 1, in: view)
