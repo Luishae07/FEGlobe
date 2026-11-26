@@ -14,8 +14,8 @@ android {
         applicationId = "org.flowsearch.atlas"
         minSdk = 28
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
         buildConfigField("String", "ARCGIS_LICENSE", "\"$arcgisLicense\"")
         // arm64: phones of today, which keeps the file small; -PatlasAbi=x86_64 builds one for an emulator on a PC
         ndk { abiFilters += ((findProperty("atlasAbi") as String?) ?: "arm64-v8a").split(",") } // or several, with commas
