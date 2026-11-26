@@ -71,7 +71,7 @@ fun SettingsPage(
                 "ArcGIS Maps SDK for Kotlin: Esri's own licence (not open source). MapLibre Native: BSD.",
                 "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0",
                 "Close up: aerial photos of the government services named on the screen. Names: NASA GIBS. Terrain: Esri World Elevation.",
-                "Place search: Photon, data from OpenStreetMap (ODbL). App icon: Natural Earth (public domain).",
+                "Place search: Nominatim, data © OpenStreetMap contributors (ODbL). App icon: Natural Earth (public domain).",
                 "Street photos: Panoramax (panoramax.fr); each photo names its author and licence.",
                 "The 3D models belong to their owners, named on the screen: mesh.flowsearch.org",
             )) { ListItem(headlineContent = { Text(it, style = MaterialTheme.typography.bodySmall) }) }

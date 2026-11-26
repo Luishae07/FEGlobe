@@ -71,17 +71,28 @@ object Data {
         }.sortedByDescending { it.views }
     }
 
-    /** places by name: Photon, made from OpenStreetMap (no key) */
-    suspend fun search(query: String): List<Place> = withContext(Dispatchers.IO) {
+    /**
+     * Places by name: Nominatim, the search of OpenStreetMap (no key). Results near the place looked at come first.
+     * Its rules allow no search while typing and at most one request a second, so it is asked only on "search".
+     */
+    suspend fun search(query: String, near: CameraState): List<Place> = withContext(Dispatchers.IO) {
         runCatching {
-            val answer = JSONObject(download("https://photon.komoot.io/api/?limit=5&q=" + URLEncoder.encode(query, "UTF-8")))
-            val features = answer.getJSONArray("features")
-            (0 until features.length()).map { i ->
-                val f = features.getJSONObject(i)
-                val p = f.getJSONObject("properties")
-                val at = f.getJSONObject("geometry").getJSONArray("coordinates")
-                val where = listOf(p.optString("city"), p.optString("country")).filter { it.isNotEmpty() }.joinToString(", ")
-                Place(p.optString("name", query), where, at.getDouble(1), at.getDouble(0))
+            var address = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&q=" + URLEncoder.encode(query, "UTF-8") +
+                "&accept-language=" + java.util.Locale.getDefault().toLanguageTag()
+            if (near.distance < 2_000_000) { // a preference, not a limit: the box around the view
+                val d = max(0.05, near.distance / 100_000)
+                address += "&viewbox=${near.longitude - d},${near.latitude + d},${near.longitude + d},${near.latitude - d}"
+            }
+            val found = JSONArray(download(address))
+            (0 until found.length()).map { i ->
+                val o = found.getJSONObject(i)
+                val full = o.getString("display_name")
+                val name = o.optString("name").ifEmpty { full.substringBefore(",") }
+                // how far the camera stands: by the size of what was found
+                val box = o.getJSONArray("boundingbox")
+                val size = max((box.getDouble(1) - box.getDouble(0)) * 110_574,
+                    (box.getDouble(3) - box.getDouble(2)) * 111_320 * cos(Math.toRadians(o.getDouble("lat"))))
+                Place(name, full.removePrefix(name).trimStart(',', ' '), o.getDouble("lat"), o.getDouble("lon"), (size * 1.2).coerceIn(600.0, 8_000_000.0))
             }
         }.getOrDefault(emptyList())
     }

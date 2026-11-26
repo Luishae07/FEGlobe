@@ -168,6 +168,7 @@ fun AtlasScreen() {
         Column(Modifier.statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp).align(Alignment.TopCenter)) {
             SearchPill(
                 esri = photo + esri,
+                near = camera,
                 onPlace = { flyTo(it) },
                 onWhole = {
                     selected = null
@@ -289,7 +290,7 @@ fun AtlasScreen() {
 
 @Composable
 private fun SearchPill(
-    esri: List<MeshModel>, onPlace: (Place) -> Unit, onWhole: () -> Unit, onSurprise: () -> Unit, onSaved: () -> Unit, onSettings: () -> Unit,
+    esri: List<MeshModel>, near: CameraState, onPlace: (Place) -> Unit, onWhole: () -> Unit, onSurprise: () -> Unit, onSaved: () -> Unit, onSettings: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     var places by remember { mutableStateOf(listOf<Place>()) }
@@ -326,14 +327,17 @@ private fun SearchPill(
                     focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent, unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { scope.launch { places = Data.search(query) } }),
+                keyboardActions = KeyboardActions(onSearch = { scope.launch { places = Data.search(query, near) } }),
             )
         }
     }
     if (places.isNotEmpty() || models.isNotEmpty()) {
         Card(Modifier.padding(top = 8.dp).heightIn(max = 340.dp)) {
             LazyColumn {
-                items(places) { p -> ListItem(headlineContent = { Text(p.name) }, supportingContent = { Text(p.subtitle) }, modifier = Modifier.clickable { choose(p) }) }
+                items(places) { p ->
+                    ListItem(headlineContent = { Text(p.name) }, supportingContent = { Text(p.subtitle, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        leadingContent = { Icon(Icons.Filled.Place, null) }, modifier = Modifier.clickable { choose(p) })
+                }
                 items(models) { p ->
                     ListItem(headlineContent = { Text(p.name, maxLines = 1) }, supportingContent = { Text(p.subtitle, maxLines = 1) },
                         leadingContent = { Icon(Icons.Filled.ViewInAr, "3D model") },modifier = Modifier.clickable { choose(p) })
