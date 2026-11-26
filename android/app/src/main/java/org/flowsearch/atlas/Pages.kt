@@ -65,6 +65,8 @@ fun SettingsPage(
                 item { Title("On the screen") }
                 items(onScreen) { ListItem(headlineContent = { Text(it, style = MaterialTheme.typography.bodySmall) }) }
             }
+            item { Title("This app") }
+            item { UpdateSetting() }
             item { Title("Licences and credits") }
             items(listOf(
                 "This app: MPL-2.0. Source: github.com/Luishae07/FEGlobe",
