@@ -193,7 +193,6 @@ struct ArcGISGlobe: View {
                         street.tapped(latitude: at.y, longitude: at.x, distance: model.camera.distance, apple: false)
                     }
                 }
-                .onChange(of: street.version) { _, _ in holder.showStreets(street.lines) }
                 .onCameraChanged { new in
                     settle.task?.cancel()
                     settle.task = Task { @MainActor in
@@ -201,6 +200,7 @@ struct ArcGISGlobe: View {
                         if !Task.isCancelled { update(from: new) }
                     }
                 }
+                .onChange(of: street.version) { _, _ in holder.showStreets(street.lines) }
                 .onChange(of: model.request) { _, request in
                     guard let request else { return }
                     Task { await proxy.setViewpointCamera(Self.camera(for: request), duration: 2) }

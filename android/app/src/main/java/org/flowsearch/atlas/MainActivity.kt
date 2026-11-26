@@ -205,7 +205,8 @@ fun AtlasScreen() {
                     street = false
                     year = 2000
                 } else year = null
-            }) { Icon(Icons.Filled.History, "Past years") }            FloatingActionButton(onClick = {
+            }) { Icon(Icons.Filled.History, "Past years") }
+            FloatingActionButton(onClick = {
                 tilted = !tilted
                 go(camera.latitude, camera.longitude, camera.distance, camera.heading, tilted)
             }) { Text(if (tilted) "2D" else "3D", style = MaterialTheme.typography.titleMedium) }
