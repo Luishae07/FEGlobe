@@ -54,15 +54,16 @@ struct ContentView: View {
     @State private var showSaved = false
     @StateObject private var saved = SavedPlaces()
     @StateObject private var past = Past()
+    @StateObject private var street = StreetModel()
     @FocusState private var searching: Bool
 
     var body: some View {
         ZStack(alignment: .top) {
             Group {
                 if engine == .arcgis {
-                    ArcGISGlobe(model: model, catalog: catalog, past: past)
+                    ArcGISGlobe(model: model, catalog: catalog, past: past, street: street)
                 } else {
-                    AppleGlobe(model: model, past: past)
+                    AppleGlobe(model: model, past: past, street: street)
                 }
             }
             .ignoresSafeArea()
@@ -93,9 +94,29 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
 
+            if street.on && !searching {
+                StreetBar(street: street, camera: model.camera, apple: engine == .mapkit)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 28)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+
             VStack(spacing: 12) {
+                RoundButton(symbol: engine == .mapkit ? "binoculars.fill" : "figure.walk", label: "Street view") {
+                    street.on.toggle()
+                    street.status = ""
+                    if street.on {
+                        model.selected = nil
+                        past.year = nil
+                        // near enough and from above: streets are easy to hit
+                        model.request = FlyRequest(latitude: model.camera.latitude, longitude: model.camera.longitude,
+                                                   distance: min(model.camera.distance, 900), heading: model.camera.heading, tilted: false)
+                    }
+                }
+                .overlay(Circle().stroke(Color.blue, lineWidth: street.on ? 3 : 0))
                 RoundButton(symbol: "clock.arrow.circlepath", label: "Look into the past") {
                     model.selected = nil
+                    street.on = false
                     past.year = past.year == nil ? 2000 : nil
                 }
                 RoundButton(symbol: model.tilted ? "view.2d" : "view.3d", label: "2D or 3D") { model.toggleTilt() }
@@ -106,7 +127,7 @@ struct ContentView: View {
                 }
             }
             .padding(.trailing, 14)
-            .padding(.bottom, past.year == nil ? 44 : 220)
+            .padding(.bottom, past.year != nil ? 220 : street.on ? 130 : 44)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .sheet(item: $model.selected) { place in
@@ -122,7 +143,15 @@ struct ContentView: View {
         }
         .task { await catalog.load() }
         .onChange(of: past.year) { _, _ in past.update(model.camera) }
-        .onChange(of: model.camera) { _, camera in past.update(camera) }
+        .onChange(of: model.camera) { _, camera in
+            past.update(camera)
+            street.update(camera, apple: engine == .mapkit)
+        }
+        .onChange(of: street.on) { _, _ in street.update(model.camera, apple: engine == .mapkit) }
+        .onChange(of: engine) { _, new in street.update(model.camera, apple: new == .mapkit) }
+        .fullScreenCover(item: $street.picture) { first in
+            StreetViewer(picture: first) { street.picture = nil }
+        }
     }
 
     private var searchBar: some View {

@@ -24,6 +24,7 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.FillExtrusionLayer
+import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.RasterLayer
@@ -50,9 +51,10 @@ private fun position(latitude: Double, longitude: Double, distance: Double, head
 /** The second map: MapLibre with the open style of OpenFreeMap (streets, names, 3D buildings; no key). */
 @Composable
 fun LibreMap(
-    camera: CameraState, request: FlyRequest?, year: Int?, buildings: List<OldBuilding>,
+    camera: CameraState, request: FlyRequest?, year: Int?, buildings: List<OldBuilding>, streets: List<StreetLine>, onTap: (Double, Double) -> Unit,
     onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier,
 ) {
+    val tap by rememberUpdatedState(onTap)
     val context = LocalContext.current
     val report by rememberUpdatedState(onCamera)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -90,6 +92,10 @@ fun LibreMap(
                 val at = p.target ?: return@addOnCameraIdleListener
                 report(CameraState(at.latitude, at.longitude, distanceFor(p.zoom, at.latitude), p.bearing))
             }
+            m.addOnMapClickListener { p ->
+                tap(p.latitude, p.longitude)
+                false
+            }
             map = m
         }
         view
@@ -104,6 +110,29 @@ fun LibreMap(
         onCredits(listOfNotNull(picture?.credit, year?.let { "Buildings: OpenHistoricalMap" }, "OpenFreeMap © OpenMapTiles, data from OpenStreetMap"))
     }
     LaunchedEffect(map, buildings) { map?.getStyle { style -> showBuildings(style, buildings) } }
+    LaunchedEffect(map, streets) { map?.getStyle { style -> showStreets(style, streets) } }
+}
+
+/** the streets with photos, in blue */
+private fun showStreets(style: Style, streets: List<StreetLine>) {
+    val lines = JSONArray()
+    streets.forEach { street ->
+        val line = JSONArray()
+        street.forEach { line.put(JSONArray().put(it.first).put(it.second)) }
+        lines.put(line)
+    }
+    val data = JSONObject().put("type", "Feature").put("properties", JSONObject())
+        .put("geometry", JSONObject().put("type", "MultiLineString").put("coordinates", lines)).toString()
+    val source = style.getSourceAs<GeoJsonSource>("streets")
+    if (source != null) {
+        source.setGeoJson(data)
+    } else {
+        style.addSource(GeoJsonSource("streets", data))
+        style.addLayer(LineLayer("streets", "streets").withProperties(
+            PropertyFactory.lineColor(Panoramax.BLUE), PropertyFactory.lineWidth(5f), PropertyFactory.lineOpacity(0.85f),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        ))
+    }
 }
 
 /** the photo of the year under the names, and today's buildings hidden while looking into the past */

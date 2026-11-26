@@ -5,6 +5,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.launch
+import com.arcgismaps.geometry.GeometryEngine
+import com.arcgismaps.geometry.Polyline
+import com.arcgismaps.mapping.symbology.SimpleLineSymbol
+import com.arcgismaps.mapping.symbology.SimpleLineSymbolStyle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.arcgismaps.Color
@@ -79,7 +87,19 @@ class SceneHolder(private val aerial: List<AerialSource>) {
     private var past: Pair<String, Layer>? = null
     private val measured = blocks(Color.fromRgba(240, 150, 60, 255))
     private val guessed = blocks(Color.fromRgba(170, 175, 185, 255))
-    val overlays = listOf(measured, guessed)
+    // the streets with photos, in blue, lying on the ground
+    private val streetOverlay = GraphicsOverlay().apply {
+        sceneProperties.surfacePlacement = SurfacePlacement.DrapedFlat
+        renderer = SimpleRenderer(SimpleLineSymbol(SimpleLineSymbolStyle.Solid, Color.fromRgba(26, 115, 255, 220), 5f))
+    }
+    val overlays = listOf(measured, guessed, streetOverlay)
+
+    fun showStreets(streets: List<StreetLine>) {
+        streetOverlay.graphics.clear()
+        streets.forEach { street ->
+            streetOverlay.graphics.add(Graphic(Polyline(street.map { Point(it.first, it.second, SpatialReference.wgs84()) })))
+        }
+    }
 
     private fun blocks(colour: Color) = GraphicsOverlay().apply {
         sceneProperties.surfacePlacement = SurfacePlacement.Relative
@@ -171,17 +191,28 @@ private fun stateOf(camera: Camera): CameraState {
 @Composable
 fun ArcGISMap(
     camera: CameraState, request: FlyRequest?, models: List<MeshModel>, placeNames: Boolean, year: Int?, buildings: List<OldBuilding>,
+    streets: List<StreetLine>, onTap: (Double, Double) -> Unit,
     onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val holder = remember { SceneHolder(Data.aerial(context)) }
     val proxy = remember { SceneViewProxy() }
     val latest = remember { mutableStateOf<Camera?>(null) }
+    val scope = rememberCoroutineScope()
+    val tap by rememberUpdatedState(onTap)
+    LaunchedEffect(streets) { holder.showStreets(streets) }
     SceneView(
         arcGISScene = holder.scene,
         modifier = modifier,
         sceneViewProxy = proxy,
         graphicsOverlays = holder.overlays,
+        onSingleTapConfirmed = { event ->
+            scope.launch {
+                val ground = proxy.screenToBaseSurface(event.screenCoordinate) ?: return@launch
+                val at = GeometryEngine.projectOrNull(ground, SpatialReference.wgs84()) as? Point ?: return@launch
+                tap(at.y, at.x)
+            }
+        },
         onCurrentViewpointCameraChanged = { latest.value = it },
     )
     // coming from the other map: the same place

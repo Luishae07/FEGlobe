@@ -3,6 +3,9 @@ package org.flowsearch.atlas
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -63,9 +66,9 @@ fun TimePanel(year: Int, camera: CameraState, status: String, onYear: (Int) -> U
     Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { if (year > History.FIRST_YEAR) onYear(year - 1) }) { Text("−", style = MaterialTheme.typography.headlineSmall) }
-                Text("${slider.roundToInt()}", style = MaterialTheme.typography.headlineMedium)
-                TextButton(onClick = { if (year < History.lastYear) onYear(year + 1) }) { Text("+", style = MaterialTheme.typography.headlineSmall) }
+                FilledTonalIconButton(onClick = { if (year > History.FIRST_YEAR) onYear(year - 1) }) { Icon(Icons.Filled.Remove, "One year back") }
+                Text("${slider.roundToInt()}", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(horizontal = 14.dp))
+                FilledTonalIconButton(onClick = { if (year < History.lastYear) onYear(year + 1) }) { Icon(Icons.Filled.Add, "One year on") }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onClose) { Text("Today") }
             }

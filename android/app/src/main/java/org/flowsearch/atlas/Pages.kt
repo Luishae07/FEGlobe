@@ -5,6 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,7 +18,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 private fun Header(title: String, back: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-        TextButton(onClick = back) { Text("←", style = MaterialTheme.typography.titleLarge) }
+        IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
         Text(title, style = MaterialTheme.typography.titleLarge)
     }
 }
@@ -49,7 +53,12 @@ fun SettingsPage(
             if (!useLibre) item { ListItem(headlineContent = { Text("Place names") }, trailingContent = { Switch(placeNames, onCheckedChange = onNames) }) }
             item { Title("3D models in the Atlas") }
             items(listOf("Photo meshes" to photo, "Esri scene layers" to esri)) { entry ->
-                ListItem(headlineContent = { Text(entry.first) }, trailingContent = { Text("${entry.second.size}  ›") },
+                ListItem(headlineContent = { Text(entry.first) }, trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${entry.second.size}")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+                    }
+                },
                     modifier = Modifier.clickable(enabled = entry.second.isNotEmpty()) { list = entry })
             }
             if (onScreen.isNotEmpty()) {
@@ -63,6 +72,7 @@ fun SettingsPage(
                 "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0",
                 "Close up: aerial photos of the government services named on the screen. Names: NASA GIBS. Terrain: Esri World Elevation.",
                 "Place search: Photon, data from OpenStreetMap (ODbL). App icon: Natural Earth (public domain).",
+                "Street photos: Panoramax (panoramax.fr); each photo names its author and licence.",
                 "The 3D models belong to their owners, named on the screen: mesh.flowsearch.org",
             )) { ListItem(headlineContent = { Text(it, style = MaterialTheme.typography.bodySmall) }) }
         }
@@ -97,7 +107,7 @@ fun SavedPage(saved: List<Place>, open: (Place) -> Unit, remove: (Place) -> Unit
         LazyColumn {
             items(saved) { p ->
                 ListItem(headlineContent = { Text(p.name) }, supportingContent = { Text("%.4f, %.4f".format(p.latitude, p.longitude)) },
-                    trailingContent = { TextButton(onClick = { remove(p) }) { Text("✕") } }, modifier = Modifier.clickable { open(p) })
+                    trailingContent = { IconButton(onClick = { remove(p) }) { Icon(Icons.Filled.Close, "Remove") } }, modifier = Modifier.clickable { open(p) })
             }
         }
     }

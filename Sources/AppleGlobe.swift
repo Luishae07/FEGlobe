@@ -6,9 +6,22 @@ import MapKit
 struct AppleGlobe: View {
     @ObservedObject var model: AtlasModel
     @ObservedObject var past: Past
+    @ObservedObject var street: StreetModel
     @State private var position: MapCameraPosition = .automatic
 
     var body: some View {
+        MapReader { proxy in
+            map
+                // street view: Apple's Look Around where the map is tapped
+                .onTapGesture { point in
+                    guard street.on, let at = proxy.convert(point, from: .local) else { return }
+                    street.tapped(latitude: at.latitude, longitude: at.longitude, distance: model.camera.distance, apple: true)
+                }
+        }
+        .lookAroundViewer(isPresented: $street.showLookAround, initialScene: street.lookAround)
+    }
+
+    private var map: some View {
         Map(position: $position) {
             UserAnnotation()
             if let place = model.selected {

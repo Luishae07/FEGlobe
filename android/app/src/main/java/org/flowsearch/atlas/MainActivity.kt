@@ -24,6 +24,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -100,6 +103,36 @@ fun AtlasScreen() {
     var esri by remember { mutableStateOf(listOf<MeshModel>()) }
     var year by remember { mutableStateOf<Int?>(null) } // null: today
     val past = rememberPast(year, camera)
+    // street view: blue streets have photos, a tap on one opens it
+    var street by remember { mutableStateOf(false) }
+    var streets by remember { mutableStateOf(listOf<StreetLine>()) }
+    var streetStatus by remember { mutableStateOf("") }
+    var streetMiddle by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var picture by remember { mutableStateOf<StreetPicture?>(null) }
+    val streetNear = camera.distance < Panoramax.NEAR
+    LaunchedEffect(street, camera.latitude, camera.longitude, streetNear) {
+        if (!street || !streetNear) return@LaunchedEffect
+        val m = streetMiddle
+        if (m != null && abs(m.first - camera.latitude) < 0.008 && abs(m.second - camera.longitude) < 0.012) return@LaunchedEffect
+        kotlinx.coroutines.delay(300)
+        streetStatus = "Loading blue streets…"
+        streets = Panoramax.streets(camera.latitude, camera.longitude)
+        streetMiddle = if (streets.isEmpty()) null else camera.latitude to camera.longitude
+        streetStatus = if (streets.isEmpty()) "No street photos around here." else ""
+    }
+    fun tapped(latitude: Double, longitude: Double) {
+        if (!street) return
+        scope.launch {
+            streetStatus = "Opening…"
+            val result = runCatching { Panoramax.nearest(latitude, longitude, (camera.distance * 0.04).coerceIn(30.0, 150.0)) }
+            picture = result.getOrNull()
+            streetStatus = when {
+                result.isFailure -> "The photos could not be loaded."
+                picture == null -> "No photo there. Tap on a blue street."
+                else -> ""
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -124,9 +157,11 @@ fun AtlasScreen() {
     Box(Modifier.fillMaxSize()) {
         // the map stays alive behind the other pages
         if (useLibre) {
-            LibreMap(camera, request, year, past.shown, onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
+            LibreMap(camera, request, year, past.shown, if (street && streetNear) streets else emptyList(), onTap = ::tapped,
+                onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
         } else {
-            ArcGISMap(camera, request, photo + esri, placeNames, year, past.shown, onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
+            ArcGISMap(camera, request, photo + esri, placeNames, year, past.shown, if (street && streetNear) streets else emptyList(), onTap = ::tapped,
+                onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
         }
 
         Column(Modifier.statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp).align(Alignment.TopCenter)) {
@@ -143,27 +178,54 @@ fun AtlasScreen() {
             )
             if (abs(camera.heading % 360) > 1) {
                 SmallFloatingActionButton(onClick = { go(camera.latitude, camera.longitude, camera.distance) }, modifier = Modifier.align(Alignment.End).padding(top = 10.dp)) {
-                    Text("▲", Modifier.rotate(-camera.heading.toFloat()))
+                    Icon(Icons.Filled.Navigation, "North up", Modifier.rotate(-camera.heading.toFloat()))
                 }
             }
         }
 
-        Column(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 14.dp, bottom = if (selected != null) 190.dp else if (year != null) 230.dp else 40.dp),
+        Column(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 14.dp, bottom = if (selected != null) 190.dp else if (year != null) 230.dp else if (street) 120.dp else 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            FloatingActionButton(
+                onClick = {
+                    street = !street
+                    streetStatus = ""
+                    if (street) {
+                        selected = null
+                        year = null
+                        // near enough and from above: streets are easy to hit
+                        go(camera.latitude, camera.longitude, camera.distance.coerceAtMost(900.0), camera.heading, tilt = false)
+                    }
+                },
+                containerColor = if (street) androidx.compose.ui.graphics.Color(0xFF1A73FF) else FloatingActionButtonDefaults.containerColor,
+                contentColor = if (street) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
+            ) { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, "Street view") }
             FloatingActionButton(onClick = {
                 if (year == null) {
                     selected = null
+                    street = false
                     year = 2000
                 } else year = null
-            }) { Text("⏳", style = MaterialTheme.typography.titleLarge) }
-            FloatingActionButton(onClick = {
+            }) { Icon(Icons.Filled.History, "Past years") }            FloatingActionButton(onClick = {
                 tilted = !tilted
                 go(camera.latitude, camera.longitude, camera.distance, camera.heading, tilted)
             }) { Text(if (tilted) "2D" else "3D", style = MaterialTheme.typography.titleMedium) }
             FloatingActionButton(onClick = {
                 val granted = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 if (granted) myPlace() else permission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
-            }) { Text("◎", style = MaterialTheme.typography.headlineSmall) }
+            }) { Icon(Icons.Filled.MyLocation, "My location") }
+        }
+
+        if (street && selected == null) {
+            Card(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(10.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+                Row(Modifier.padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = androidx.compose.ui.graphics.Color(0xFF1A73FF))
+                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                        Text(if (streetNear) "Tap a blue street" else "Zoom in to see blue streets", style = MaterialTheme.typography.titleMedium)
+                        Text(streetStatus.ifEmpty { "Photos: Panoramax" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { street = false }) { Icon(Icons.Filled.Close, "Close street view") }
+                }
+            }
         }
 
         year?.let { y ->
@@ -173,7 +235,7 @@ fun AtlasScreen() {
             }
         }
 
-        if (credits.isNotEmpty() && selected == null && year == null) {
+        if (credits.isNotEmpty() && selected == null && year == null && !street) {
             Text("© " + credits.first(), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = androidx.compose.ui.graphics.Color.White,
                 modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 10.dp, bottom = 22.dp).widthIn(max = 260.dp))
         }
@@ -184,7 +246,7 @@ fun AtlasScreen() {
                 Column(Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(place.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { selected = null }) { Text("✕") }
+                        IconButton(onClick = { selected = null }) { Icon(Icons.Filled.Close, "Close") }
                     }
                     if (place.subtitle.isNotEmpty()) Text(place.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     Text("%.5f, %.5f".format(java.util.Locale.ROOT, place.latitude, place.longitude), style = MaterialTheme.typography.bodySmall)
@@ -202,6 +264,8 @@ fun AtlasScreen() {
                 }
             }
         }
+
+        picture?.let { first -> StreetViewer(first) { picture = null } }
 
         if (page != Page.Map) {
             BackHandler { page = Page.Map }
@@ -242,10 +306,13 @@ private fun SearchPill(
     Surface(shape = RoundedCornerShape(28.dp), tonalElevation = 3.dp, shadowElevation = 6.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box {
-                TextButton(onClick = { menu = true }) { Text("☰", style = MaterialTheme.typography.titleLarge) }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.Menu, "Menu") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    listOf("Whole Earth" to onWhole, "Surprise me" to onSurprise, "Saved places" to onSaved, "Settings" to onSettings).forEach { (label, action) ->
-                        DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; focus.clearFocus(); action() })
+                    listOf(
+                        Triple("Whole Earth", Icons.Filled.Public, onWhole), Triple("Surprise me", Icons.Filled.Casino, onSurprise),
+                        Triple("Saved places", Icons.Filled.Bookmarks, onSaved), Triple("Settings", Icons.Filled.Settings, onSettings),
+                    ).forEach { (label, icon, action) ->
+                        DropdownMenuItem(text = { Text(label) }, leadingIcon = { Icon(icon, null) }, onClick = { menu = false; focus.clearFocus(); action() })
                     }
                 }
             }
@@ -267,7 +334,7 @@ private fun SearchPill(
                 items(places) { p -> ListItem(headlineContent = { Text(p.name) }, supportingContent = { Text(p.subtitle) }, modifier = Modifier.clickable { choose(p) }) }
                 items(models) { p ->
                     ListItem(headlineContent = { Text(p.name, maxLines = 1) }, supportingContent = { Text(p.subtitle, maxLines = 1) },
-                        leadingContent = { Text("3D") }, modifier = Modifier.clickable { choose(p) })
+                        leadingContent = { Icon(Icons.Filled.ViewInAr, "3D model") },modifier = Modifier.clickable { choose(p) })
                 }
             }
         }

@@ -64,7 +64,22 @@ final class SceneHolder: ObservableObject {
     private var past: (id: String, layer: Layer)?
     private let measured = SceneHolder.blocks(UIColor(red: 0.94, green: 0.59, blue: 0.24, alpha: 1))
     private let guessed = SceneHolder.blocks(UIColor(red: 0.67, green: 0.69, blue: 0.73, alpha: 1))
-    var overlays: [GraphicsOverlay] { [measured, guessed] }
+    // the streets with photos, in blue, lying on the ground
+    private let streetOverlay: GraphicsOverlay = {
+        let overlay = GraphicsOverlay()
+        overlay.sceneProperties.surfacePlacement = .drapedFlat
+        overlay.renderer = SimpleRenderer(symbol: SimpleLineSymbol(style: .solid, color: UIColor(red: 0.1, green: 0.45, blue: 1, alpha: 0.86), width: 5))
+        return overlay
+    }()
+    var overlays: [GraphicsOverlay] { [measured, guessed, streetOverlay] }
+
+    func showStreets(_ streets: [StreetLine]) {
+        streetOverlay.removeAllGraphics()
+        for street in streets {
+            let line = Polyline(points: street.map { Point(x: $0.longitude, y: $0.latitude, spatialReference: .wgs84) })
+            streetOverlay.addGraphic(Graphic(geometry: line))
+        }
+    }
 
     private static func blocks(_ colour: UIColor) -> GraphicsOverlay {
         let overlay = GraphicsOverlay()
@@ -156,6 +171,7 @@ struct ArcGISGlobe: View {
     @ObservedObject var model: AtlasModel
     @ObservedObject var catalog: MeshCatalog
     @ObservedObject var past: Past
+    @ObservedObject var street: StreetModel
     @AppStorage("placeNames") private var placeNames = true
     @StateObject private var holder = SceneHolder()
     @State private var settle = Settle()
@@ -169,6 +185,15 @@ struct ArcGISGlobe: View {
     var body: some View {
         SceneViewReader { proxy in
             SceneView(scene: holder.scene, graphicsOverlays: holder.overlays)
+                .onSingleTapGesture { screen, _ in
+                    guard street.on else { return }
+                    Task {
+                        guard let ground = try? await proxy.baseSurfaceLocation(fromScreenPoint: screen),
+                              let at = GeometryEngine.project(ground, into: .wgs84) else { return }
+                        street.tapped(latitude: at.y, longitude: at.x, distance: model.camera.distance, apple: false)
+                    }
+                }
+                .onChange(of: street.version) { _, _ in holder.showStreets(street.lines) }
                 .onCameraChanged { new in
                     settle.task?.cancel()
                     settle.task = Task { @MainActor in
@@ -217,6 +242,7 @@ struct ArcGISGlobe: View {
         .onAppear {
             refresh()
             holder.showBuildings(past.shown)
+            holder.showStreets(street.lines)
         }
     }
 
