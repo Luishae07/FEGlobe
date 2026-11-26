@@ -105,23 +105,24 @@ fun AtlasScreen() {
     val past = rememberPast(year, camera)
     // street view: blue streets have photos, a tap on one opens it
     var street by remember { mutableStateOf(false) }
-    var streets by remember { mutableStateOf(listOf<StreetLine>()) }
+    var coverage by remember { mutableStateOf(Coverage()) }
     var streetStatus by remember { mutableStateOf("") }
-    var streetMiddle by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var picture by remember { mutableStateOf<StreetPicture?>(null) }
     val streetNear = camera.distance < Panoramax.NEAR
-    LaunchedEffect(street, camera.latitude, camera.longitude, streetNear) {
-        if (!street || !streetNear) return@LaunchedEffect
-        val m = streetMiddle
-        if (m != null && abs(m.first - camera.latitude) < 0.008 && abs(m.second - camera.longitude) < 0.012) return@LaunchedEffect
-        kotlinx.coroutines.delay(300)
-        streetStatus = "Loading blue streets…"
-        streets = Panoramax.streets(camera.latitude, camera.longitude)
-        streetMiddle = if (streets.isEmpty()) null else camera.latitude to camera.longitude
-        streetStatus = if (streets.isEmpty()) "No street photos around here." else ""
+    // blue at every zoom (MapLibre reads the tiles itself; for ArcGIS they are read here)
+    val tiles = if (street && !useLibre) Panoramax.view(camera.latitude, camera.longitude, camera.distance) else null
+    LaunchedEffect(tiles) {
+        if (tiles == null) return@LaunchedEffect
+        kotlinx.coroutines.delay(150)
+        coverage = Panoramax.coverage(tiles)
+        streetStatus = if (coverage.isEmpty) "No street photos around here." else ""
     }
     fun tapped(latitude: Double, longitude: Double) {
         if (!street) return
+        if (camera.distance >= Panoramax.NEAR) { // from far away a tap flies closer
+            request = FlyRequest(System.nanoTime(), latitude, longitude, (camera.distance / 8).coerceAtLeast(900.0), camera.heading, false)
+            return
+        }
         scope.launch {
             streetStatus = "Opening…"
             val result = runCatching { Panoramax.nearest(latitude, longitude, (camera.distance * 0.04).coerceIn(30.0, 150.0)) }
@@ -157,10 +158,10 @@ fun AtlasScreen() {
     Box(Modifier.fillMaxSize()) {
         // the map stays alive behind the other pages
         if (useLibre) {
-            LibreMap(camera, request, year, past.shown, if (street && streetNear) streets else emptyList(), onTap = ::tapped,
+            LibreMap(camera, request, year, past.shown, street, onTap = ::tapped,
                 onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
         } else {
-            ArcGISMap(camera, request, photo + esri, placeNames, year, past.shown, if (street && streetNear) streets else emptyList(), onTap = ::tapped,
+            ArcGISMap(camera, request, photo + esri, placeNames, year, past.shown, if (street) coverage else Coverage(), onTap = ::tapped,
                 onCamera = { camera = it }, onCredits = { credits = it }, modifier = Modifier.fillMaxSize())
         }
 
@@ -192,8 +193,8 @@ fun AtlasScreen() {
                     if (street) {
                         selected = null
                         year = null
-                        // near enough and from above: streets are easy to hit
-                        go(camera.latitude, camera.longitude, camera.distance.coerceAtMost(900.0), camera.heading, tilt = false)
+                        // from above: blue streets are easy to hit; the zoom stays as it is
+                        go(camera.latitude, camera.longitude, camera.distance, camera.heading, tilt = false)
                     }
                 },
                 containerColor = if (street) androidx.compose.ui.graphics.Color(0xFF1A73FF) else FloatingActionButtonDefaults.containerColor,
@@ -221,7 +222,7 @@ fun AtlasScreen() {
                 Row(Modifier.padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, tint = androidx.compose.ui.graphics.Color(0xFF1A73FF))
                     Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        Text(if (streetNear) "Tap a blue street" else "Zoom in to see blue streets", style = MaterialTheme.typography.titleMedium)
+                        Text(if (streetNear) "Tap a blue street" else "Tap a blue area to fly closer", style = MaterialTheme.typography.titleMedium)
                         Text(streetStatus.ifEmpty { "Photos: Panoramax" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { street = false }) { Icon(Icons.Filled.Close, "Close street view") }

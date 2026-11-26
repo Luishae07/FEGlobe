@@ -13,6 +13,8 @@ import com.arcgismaps.geometry.GeometryEngine
 import com.arcgismaps.geometry.Polyline
 import com.arcgismaps.mapping.symbology.SimpleLineSymbol
 import com.arcgismaps.mapping.symbology.SimpleLineSymbolStyle
+import com.arcgismaps.mapping.symbology.SimpleMarkerSymbol
+import com.arcgismaps.mapping.symbology.SimpleMarkerSymbolStyle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.arcgismaps.Color
@@ -92,13 +94,20 @@ class SceneHolder(private val aerial: List<AerialSource>) {
         sceneProperties.surfacePlacement = SurfacePlacement.DrapedFlat
         renderer = SimpleRenderer(SimpleLineSymbol(SimpleLineSymbolStyle.Solid, Color.fromRgba(26, 115, 255, 220), 5f))
     }
-    val overlays = listOf(measured, guessed, streetOverlay)
+    // and from far away blue dots where there are photos
+    private val dotOverlay = GraphicsOverlay().apply {
+        sceneProperties.surfacePlacement = SurfacePlacement.DrapedFlat
+        renderer = SimpleRenderer(SimpleMarkerSymbol(SimpleMarkerSymbolStyle.Circle, Color.fromRgba(26, 115, 255, 210), 5f))
+    }
+    val overlays = listOf(measured, guessed, streetOverlay, dotOverlay)
 
-    fun showStreets(streets: List<StreetLine>) {
+    fun showCoverage(coverage: Coverage) {
         streetOverlay.graphics.clear()
-        streets.forEach { street ->
+        coverage.lines.forEach { street ->
             streetOverlay.graphics.add(Graphic(Polyline(street.map { Point(it.first, it.second, SpatialReference.wgs84()) })))
         }
+        dotOverlay.graphics.clear()
+        dotOverlay.graphics.addAll(coverage.dots.map { Graphic(Point(it.first, it.second, SpatialReference.wgs84())) })
     }
 
     private fun blocks(colour: Color) = GraphicsOverlay().apply {
@@ -191,7 +200,7 @@ private fun stateOf(camera: Camera): CameraState {
 @Composable
 fun ArcGISMap(
     camera: CameraState, request: FlyRequest?, models: List<MeshModel>, placeNames: Boolean, year: Int?, buildings: List<OldBuilding>,
-    streets: List<StreetLine>, onTap: (Double, Double) -> Unit,
+    coverage: Coverage, onTap: (Double, Double) -> Unit,
     onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -200,7 +209,7 @@ fun ArcGISMap(
     val latest = remember { mutableStateOf<Camera?>(null) }
     val scope = rememberCoroutineScope()
     val tap by rememberUpdatedState(onTap)
-    LaunchedEffect(streets) { holder.showStreets(streets) }
+    LaunchedEffect(coverage) { holder.showCoverage(coverage) }
     SceneView(
         arcGISScene = holder.scene,
         modifier = modifier,

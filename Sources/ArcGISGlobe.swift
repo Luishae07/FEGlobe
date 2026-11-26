@@ -71,14 +71,23 @@ final class SceneHolder: ObservableObject {
         overlay.renderer = SimpleRenderer(symbol: SimpleLineSymbol(style: .solid, color: UIColor(red: 0.1, green: 0.45, blue: 1, alpha: 0.86), width: 5))
         return overlay
     }()
-    var overlays: [GraphicsOverlay] { [measured, guessed, streetOverlay] }
+    // and from far away blue dots where there are photos
+    private let dotOverlay: GraphicsOverlay = {
+        let overlay = GraphicsOverlay()
+        overlay.sceneProperties.surfacePlacement = .drapedFlat
+        overlay.renderer = SimpleRenderer(symbol: SimpleMarkerSymbol(style: .circle, color: UIColor(red: 0.1, green: 0.45, blue: 1, alpha: 0.82), size: 5))
+        return overlay
+    }()
+    var overlays: [GraphicsOverlay] { [measured, guessed, streetOverlay, dotOverlay] }
 
-    func showStreets(_ streets: [StreetLine]) {
+    func showCoverage(_ coverage: Coverage) {
         streetOverlay.removeAllGraphics()
-        for street in streets {
+        for street in coverage.lines {
             let line = Polyline(points: street.map { Point(x: $0.longitude, y: $0.latitude, spatialReference: .wgs84) })
             streetOverlay.addGraphic(Graphic(geometry: line))
         }
+        dotOverlay.removeAllGraphics()
+        dotOverlay.addGraphics(coverage.dots.map { Graphic(geometry: Point(x: $0.longitude, y: $0.latitude, spatialReference: .wgs84)) })
     }
 
     private static func blocks(_ colour: UIColor) -> GraphicsOverlay {
@@ -200,7 +209,7 @@ struct ArcGISGlobe: View {
                         if !Task.isCancelled { update(from: new) }
                     }
                 }
-                .onChange(of: street.version) { _, _ in holder.showStreets(street.lines) }
+                .onChange(of: street.version) { _, _ in holder.showCoverage(street.coverage) }
                 .onChange(of: model.request) { _, request in
                     guard let request else { return }
                     Task { await proxy.setViewpointCamera(Self.camera(for: request), duration: 2) }
@@ -242,7 +251,7 @@ struct ArcGISGlobe: View {
         .onAppear {
             refresh()
             holder.showBuildings(past.shown)
-            holder.showStreets(street.lines)
+            holder.showCoverage(street.coverage)
         }
     }
 

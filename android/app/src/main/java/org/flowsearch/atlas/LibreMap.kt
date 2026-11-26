@@ -25,6 +25,8 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.FillExtrusionLayer
 import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.sources.VectorSource
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.RasterLayer
@@ -51,7 +53,7 @@ private fun position(latitude: Double, longitude: Double, distance: Double, head
 /** The second map: MapLibre with the open style of OpenFreeMap (streets, names, 3D buildings; no key). */
 @Composable
 fun LibreMap(
-    camera: CameraState, request: FlyRequest?, year: Int?, buildings: List<OldBuilding>, streets: List<StreetLine>, onTap: (Double, Double) -> Unit,
+    camera: CameraState, request: FlyRequest?, year: Int?, buildings: List<OldBuilding>, street: Boolean, onTap: (Double, Double) -> Unit,
     onCamera: (CameraState) -> Unit, onCredits: (List<String>) -> Unit, modifier: Modifier = Modifier,
 ) {
     val tap by rememberUpdatedState(onTap)
@@ -110,28 +112,30 @@ fun LibreMap(
         onCredits(listOfNotNull(picture?.credit, year?.let { "Buildings: OpenHistoricalMap" }, "OpenFreeMap © OpenMapTiles, data from OpenStreetMap"))
     }
     LaunchedEffect(map, buildings) { map?.getStyle { style -> showBuildings(style, buildings) } }
-    LaunchedEffect(map, streets) { map?.getStyle { style -> showStreets(style, streets) } }
+    LaunchedEffect(map, street) { map?.getStyle { style -> showStreets(style, street) } }
 }
 
-/** the streets with photos, in blue */
-private fun showStreets(style: Style, streets: List<StreetLine>) {
-    val lines = JSONArray()
-    streets.forEach { street ->
-        val line = JSONArray()
-        street.forEach { line.put(JSONArray().put(it.first).put(it.second)) }
-        lines.put(line)
-    }
-    val data = JSONObject().put("type", "Feature").put("properties", JSONObject())
-        .put("geometry", JSONObject().put("type", "MultiLineString").put("coordinates", lines)).toString()
-    val source = style.getSourceAs<GeoJsonSource>("streets")
-    if (source != null) {
-        source.setGeoJson(data)
-    } else {
-        style.addSource(GeoJsonSource("streets", data))
-        style.addLayer(LineLayer("streets", "streets").withProperties(
-            PropertyFactory.lineColor(Panoramax.BLUE), PropertyFactory.lineWidth(5f), PropertyFactory.lineOpacity(0.85f),
+/** where there are photos, in blue, at every zoom: MapLibre reads the coverage tiles of Panoramax itself */
+private fun showStreets(style: Style, on: Boolean) {
+    if (on && style.getSource("coverage") == null) {
+        style.addSource(VectorSource("coverage", TileSet("2.2.0", Panoramax.TILES).apply { setMaxZoom(15f) }))
+        // far out: dots for the areas of the grid that have photos
+        val dots = CircleLayer("coverage-dots", "coverage").withProperties(PropertyFactory.circleColor(Panoramax.BLUE), PropertyFactory.circleRadius(3f))
+        dots.setSourceLayer("grid")
+        dots.setFilter(Expression.gt(Expression.get("coef"), Expression.literal(0)))
+        dots.maxZoom = 7f
+        style.addLayer(dots)
+        val lines = LineLayer("coverage-lines", "coverage").withProperties(
+            PropertyFactory.lineColor(Panoramax.BLUE), PropertyFactory.lineOpacity(0.85f),
+            PropertyFactory.lineWidth(Expression.interpolate(Expression.linear(), Expression.zoom(),
+                Expression.stop(5, 1f), Expression.stop(12, 2.5f), Expression.stop(16, 6f))),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-        ))
+        )
+        lines.setSourceLayer("sequences")
+        style.addLayer(lines)
+    }
+    listOf("coverage-dots", "coverage-lines").forEach {
+        style.getLayer(it)?.setProperties(PropertyFactory.visibility(if (on) Property.VISIBLE else Property.NONE))
     }
 }
 

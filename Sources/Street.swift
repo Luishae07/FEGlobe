@@ -21,11 +21,26 @@ struct StreetPicture: Identifiable, Equatable, Sendable {
 /// A stretch of street that has photos.
 typealias StreetLine = [CLLocationCoordinate2D]
 
+/// Where there are photos: streets when near; from far away dots, one for each area that has some.
+struct Coverage: Sendable {
+    var lines: [StreetLine] = []
+    var dots: [CLLocationCoordinate2D] = []
+    var isEmpty: Bool { lines.isEmpty && dots.isEmpty }
+}
+
+/// The coverage tiles wanted for a camera: their zoom level and the middle one.
+struct TileView: Equatable, Sendable {
+    let zoom: Int
+    let x: Int
+    let y: Int
+}
+
 enum Panoramax {
     static let api = "https://api.panoramax.xyz/api"
-    /// the camera must be this near, in metres, for the streets to be shown
+    /// the camera must be this near, in metres, for a tap to open a photo; from farther away it flies closer
     static let near = 4_000.0
-    private static let zoom = 14
+    /// below this tile level the tiles hold areas (a grid), from it on streets
+    private static let streetsFrom = 7
 
     private static func download(_ address: String) async throws -> Data {
         guard let url = URL(string: address) else { throw URLError(.badURL) }
@@ -76,22 +91,41 @@ enum Panoramax {
         return (answer?["features"] as? [[String: Any]] ?? []).compactMap(picture).min { away($0) < away($1) }
     }
 
-    /// the streets with photos around a place
-    static func streets(latitude: Double, longitude: Double) async -> [StreetLine] {
+    static func view(latitude: Double, longitude: Double, distance: Double) -> TileView {
+        let level = log2(40_000_000 * max(0.1, cos(latitude * .pi / 180)) / max(100, distance)) + 1
+        let zoom = min(14, max(2, Int(level)))
         let size = Double(1 << zoom)
-        let x = Int((longitude + 180) / 360 * size)
-        let y = Int((1 - asinh(tan(latitude * .pi / 180)) / .pi) / 2 * size)
-        return await withTaskGroup(of: [StreetLine].self) { group in
-            for dx in -1...1 {
-                for dy in -1...1 {
-                    group.addTask {
-                        guard let data = try? await download("\(api)/map/\(zoom)/\(x + dx)/\(y + dy).mvt") else { return [] }
-                        return lines([UInt8](data), tileX: x + dx, tileY: y + dy)
-                    }
+        if size <= 4 { return TileView(zoom: zoom, x: 0, y: 0) } // far out: the whole world
+        let safe = min(85, max(-85, latitude))
+        return TileView(zoom: zoom, x: Int((longitude + 180) / 360 * size), y: Int((1 - asinh(tan(safe * .pi / 180)) / .pi) / 2 * size))
+    }
+
+    /// where there are photos around the middle of the view; all tiles are asked at the same time
+    /// (the system keeps its own copy of answers, so moving back asks little twice)
+    static func coverage(_ view: TileView) async -> Coverage {
+        let size = 1 << view.zoom
+        var wanted: [(Int, Int)] = []
+        if size <= 4 {
+            for x in 0..<size { for y in 0..<size { wanted.append((x, y)) } }
+        } else {
+            for dx in -2...2 {
+                for dy in -2...2 where view.y + dy >= 0 && view.y + dy < size {
+                    wanted.append(((view.x + dx + size) % size, view.y + dy))
                 }
             }
-            var all: [StreetLine] = []
-            for await part in group { all += part }
+        }
+        return await withTaskGroup(of: Coverage.self) { group in
+            for (x, y) in wanted {
+                group.addTask {
+                    guard let data = try? await download("\(api)/map/\(view.zoom)/\(x)/\(y).mvt") else { return Coverage() }
+                    return read([UInt8](data), zoom: view.zoom, tileX: x, tileY: y)
+                }
+            }
+            var all = Coverage()
+            for await part in group {
+                all.lines += part.lines
+                all.dots += part.dots
+            }
             return all
         }
     }
@@ -131,8 +165,31 @@ enum Panoramax {
         }
     }
 
-    private static func lines(_ data: [UInt8], tileX: Int, tileY: Int) -> [StreetLine] {
-        var result: [StreetLine] = []
+    /// is this value of a tile a number above zero?
+    private static func positive(_ value: Reader) -> Bool {
+        var value = value
+        while value.more {
+            let k = value.number()
+            switch k >> 3 {
+            case 4, 5: return value.number() > 0
+            case 6:
+                let n = value.number()
+                return (n >> 1) ^ -(n & 1) > 0
+            case 2, 3:
+                let count = k >> 3 == 2 ? 4 : 8
+                guard value.at + count <= value.bytes.count else { return false }
+                var bits: UInt64 = 0
+                for i in 0..<count { bits |= UInt64(value.bytes[value.at + i]) << (8 * i) }
+                return count == 4 ? Float(bitPattern: UInt32(truncatingIfNeeded: bits)) > 0 : Double(bitPattern: bits) > 0
+            default: value.skip(k & 7)
+            }
+        }
+        return false
+    }
+
+    private static func read(_ data: [UInt8], zoom: Int, tileX: Int, tileY: Int) -> Coverage {
+        var result = Coverage()
+        let wanted = zoom < streetsFrom ? "grid" : "sequences"
         var tile = Reader(bytes: data, at: 0, end: data.count)
         let size = Double(1 << zoom)
         while tile.more {
@@ -142,6 +199,8 @@ enum Panoramax {
             var name = ""
             var extent = 4096
             var features: [Reader] = []
+            var keys: [String] = []
+            var values: [Reader] = []
             while layer.more {
                 let k = layer.number()
                 switch k >> 3 {
@@ -149,14 +208,30 @@ enum Panoramax {
                     let p = layer.part()
                     name = String(decoding: data[p.at..<p.end], as: UTF8.self)
                 case 2: features.append(layer.part())
+                case 3:
+                    let p = layer.part()
+                    keys.append(String(decoding: data[p.at..<p.end], as: UTF8.self))
+                case 4: values.append(layer.part())
                 case 5: extent = layer.number()
                 default: layer.skip(k & 7)
                 }
             }
-            if name != "sequences" { continue }
+            if name != wanted { continue }
+            // an area of the grid counts only if its "coef" says that it has photos
+            let coef = keys.firstIndex(of: "coef")
+            let full = values.map(positive)
             for var feature in features {
+                var empty = false
                 while feature.more {
                     let k = feature.number()
+                    if k >> 3 == 2 {
+                        var tags = feature.part()
+                        while tags.more {
+                            let key = tags.number(), value = tags.number()
+                            if key == coef && value < full.count && !full[value] { empty = true }
+                        }
+                        continue
+                    }
                     if k >> 3 != 4 { feature.skip(k & 7); continue }
                     // the geometry: "move to" starts a line, "line to" goes on; steps are relative
                     var g = feature.part()
@@ -171,15 +246,18 @@ enum Panoramax {
                             x += (a >> 1) ^ -(a & 1)
                             y += (c >> 1) ^ -(c & 1)
                             if what == 1 {
-                                if line.count > 1 { result.append(line) }
+                                if wanted == "sequences" && line.count > 1 { result.lines.append(line) }
                                 line = []
                             }
                             let longitude = (Double(tileX) + Double(x) / Double(extent)) / size * 360 - 180
                             let latitude = atan(sinh(.pi * (1 - 2 * (Double(tileY) + Double(y) / Double(extent)) / size))) * 180 / .pi
-                            line.append(CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+                            let point = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                            // points over the edge of the tile belong to the neighbour
+                            if wanted == "grid" && !empty && x >= 0 && x < extent && y >= 0 && y < extent { result.dots.append(point) }
+                            line.append(point)
                         }
                     }
-                    if line.count > 1 { result.append(line) }
+                    if wanted == "sequences" && line.count > 1 { result.lines.append(line) }
                 }
             }
         }
@@ -191,32 +269,35 @@ enum Panoramax {
 @MainActor
 final class StreetModel: ObservableObject {
     @Published var on = false
-    @Published private(set) var lines: [StreetLine] = []
+    @Published private(set) var coverage = Coverage()
     @Published private(set) var version = 0
+    /// "fly there" for a tap from far away
+    var closer: ((Double, Double, Double) -> Void)?
     @Published var status = ""
     @Published var picture: StreetPicture?
     @Published var lookAround: MKLookAroundScene?
     @Published var showLookAround = false
 
-    private var middle: CameraState?
+    private var shownView: TileView?
     private var task: Task<Void, Never>?
 
-    /// loads the blue streets for the camera (only for the map that shows Panoramax)
+    /// loads the blue coverage for the camera, at every zoom (only for the map that shows Panoramax)
     func update(_ camera: CameraState, apple: Bool) {
-        task?.cancel()
-        guard on, !apple, camera.distance < Panoramax.near else {
-            if !lines.isEmpty { show([]) }
-            middle = nil
+        guard on, !apple else {
+            task?.cancel()
+            if !coverage.isEmpty { show(Coverage()) }
+            shownView = nil
             return
         }
-        if let m = middle, abs(m.latitude - camera.latitude) < 0.008, abs(m.longitude - camera.longitude) < 0.012 { return }
+        let view = Panoramax.view(latitude: camera.latitude, longitude: camera.longitude, distance: camera.distance)
+        if view == shownView { return }
+        task?.cancel()
         task = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: 150_000_000)
             if Task.isCancelled { return }
-            status = "Loading blue streets…"
-            let found = await Panoramax.streets(latitude: camera.latitude, longitude: camera.longitude)
+            let found = await Panoramax.coverage(view)
             if Task.isCancelled { return }
-            middle = found.isEmpty ? nil : camera
+            shownView = found.isEmpty ? nil : view
             show(found)
             status = found.isEmpty ? "No street photos around here." : ""
         }
@@ -225,6 +306,10 @@ final class StreetModel: ObservableObject {
     /// the visitor tapped the map
     func tapped(latitude: Double, longitude: Double, distance: Double, apple: Bool) {
         guard on else { return }
+        if !apple && distance >= Panoramax.near { // from far away a tap flies closer
+            closer?(latitude, longitude, max(900, distance / 8))
+            return
+        }
         status = "Opening…"
         Task {
             if apple {
@@ -247,8 +332,8 @@ final class StreetModel: ObservableObject {
         }
     }
 
-    private func show(_ found: [StreetLine]) {
-        lines = found
+    private func show(_ found: Coverage) {
+        coverage = found
         version += 1
     }
 }
@@ -263,7 +348,7 @@ struct StreetBar: View {
         HStack(spacing: 14) {
             Image(systemName: apple ? "binoculars.fill" : "figure.walk").font(.title2).foregroundStyle(.blue)
             VStack(alignment: .leading, spacing: 2) {
-                Text(apple ? "Tap a street for Look Around" : camera.distance < Panoramax.near ? "Tap a blue street" : "Zoom in to see blue streets")
+                Text(apple ? "Tap a street for Look Around" : camera.distance < Panoramax.near ? "Tap a blue street" : "Tap a blue area to fly closer")
                     .font(.headline)
                 Text(street.status.isEmpty ? (apple ? "Apple does not say in advance where it exists." : "Photos: Panoramax") : street.status)
                     .font(.footnote).foregroundStyle(.secondary)

@@ -108,9 +108,12 @@ struct ContentView: View {
                     if street.on {
                         model.selected = nil
                         past.year = nil
-                        // near enough and from above: streets are easy to hit
+                        // from above: blue streets are easy to hit; the zoom stays as it is
+                        street.closer = { latitude, longitude, distance in
+                            model.request = FlyRequest(latitude: latitude, longitude: longitude, distance: distance, tilted: false)
+                        }
                         model.request = FlyRequest(latitude: model.camera.latitude, longitude: model.camera.longitude,
-                                                   distance: min(model.camera.distance, 900), heading: model.camera.heading, tilted: false)
+                                                   distance: model.camera.distance, heading: model.camera.heading, tilted: false)
                     }
                 }
                 .overlay(Circle().stroke(Color.blue, lineWidth: street.on ? 3 : 0))
