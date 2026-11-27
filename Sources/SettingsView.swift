@@ -110,8 +110,9 @@ struct LicencesView: View {
                 Link("Source code of the app", destination: URL(string: "https://github.com/Luishae07/FEGlobe")!)
             }
             Section("Pictures and terrain") {
+                Text("Satellite: Powered by Esri. Esri, Maxar, Earthstar Geographics, and the GIS User Community. The pictures come through flowsearch.org, so Esri does not see your address.")
                 Text("Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0")
-                Text("Close up: aerial photos of the government services named on the screen; German ones come through mesh.flowsearch.org, which keeps copies.")
+                Text("Where Esri's picture does not come, close up: aerial photos of the government services named on the screen; German ones come through mesh.flowsearch.org, which keeps copies.")
                 Text("Names: NASA GIBS. Terrain: Esri World Elevation.")
                 Text("App icon: Natural Earth (public domain).")
             }

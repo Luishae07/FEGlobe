@@ -18,26 +18,20 @@ struct AerialSource: Decodable {
     private static let kept: Set<String> = ["berlin2024", "saarland-nrw", "brandenburg", "saxony", "thuringia", "saxony-anhalt", "hesse",
                                             "rhineland", "bavaria", "lower-saxony", "mecklenburg"]
 
-    /// the source as an ArcGIS layer: a tiled service, or a map service (WMS)
-    func layer() -> Layer? {
+    /// the address of one square of the web mercator grid: a tiled service, or a map service (WMS)
+    func tileURL(level: Int, row: Int, column: Int) -> URL? {
+        var address = template
         if Self.kept.contains(id) {
-            return WebTiledLayer(urlTemplate: "https://mesh.flowsearch.org/dop/\(id)/{level}/{col}/{row}.png")
+            address = "https://mesh.flowsearch.org/dop/\(id)/{z}/{x}/{y}.png"
+        } else if template.contains("exportImage") { // USGS: the same photos as a tiled service
+            address = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
         }
-        if template.contains("{z}") {
-            let address = template.replacingOccurrences(of: "{z}", with: "{level}").replacingOccurrences(of: "{y}", with: "{row}")
-                .replacingOccurrences(of: "{x}", with: "{col}")
-            return WebTiledLayer(urlTemplate: address)
-        }
-        if template.contains("exportImage") { // USGS: the same photos as a tiled service
-            return WebTiledLayer(urlTemplate: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{level}/{row}/{col}")
-        }
-        guard var parts = URLComponents(string: template.replacingOccurrences(of: "{bbox}", with: "0")),
-              let name = parts.queryItems?.first(where: { $0.name == "LAYERS" })?.value else { return nil }
-        let own: Set<String> = ["SERVICE", "VERSION", "REQUEST", "LAYERS", "STYLES", "CRS", "BBOX", "WIDTH", "HEIGHT", "FORMAT", "TRANSPARENT"]
-        parts.queryItems = parts.queryItems?.filter { !own.contains($0.name) }
-        if parts.queryItems?.isEmpty == true { parts.queryItems = nil }
-        guard let url = parts.url else { return nil }
-        return WMSLayer(url: url, layerNames: [name])
+        let edge = 20037508.342789244, size = 2 * edge / Double(1 << level)
+        let box = [Double(column) * size - edge, edge - Double(row + 1) * size, Double(column + 1) * size - edge, edge - Double(row) * size]
+        address = address.replacingOccurrences(of: "{z}", with: "\(level)").replacingOccurrences(of: "{x}", with: "\(column)")
+            .replacingOccurrences(of: "{y}", with: "\(row)")
+            .replacingOccurrences(of: "{bbox}", with: box.map { String(format: "%.6f", $0) }.joined(separator: ","))
+        return URL(string: address)
     }
 }
 
@@ -45,7 +39,6 @@ struct AerialSource: Decodable {
 @MainActor
 final class SceneHolder: ObservableObject {
     let scene: ArcGIS.Scene
-    private var photos: [String: Layer] = [:]
     private var models: [String: Layer] = [:]
     private var names: Layer?
     @Published var shownModels: [String] = []
@@ -57,9 +50,11 @@ final class SceneHolder: ObservableObject {
     }()
 
     init() {
-        // Sentinel-2 cloudless 2016 by EOX (CC BY 4.0): no key needed
-        let satellite = WebTiledLayer(urlTemplate: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{level}/{row}/{col}.jpg")
-        scene = ArcGIS.Scene(basemap: Basemap(baseLayer: satellite))
+        // Esri World Imagery (Satellite.swift); below it Sentinel-2 cloudless 2016 by EOX (CC BY 4.0), seen where a picture does not come
+        let cloudless = WebTiledLayer(urlTemplate: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{level}/{row}/{col}.jpg")
+        let basemap = Basemap(baseLayer: cloudless)
+        basemap.addBaseLayer(Satellite.layer(Self.sources))
+        scene = ArcGIS.Scene(basemap: basemap)
         let surface = Surface()
         surface.addElevationSource(ArcGISTiledElevationSource(
             url: URL(string: "https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer")!))
@@ -147,20 +142,9 @@ final class SceneHolder: ObservableObject {
                 scene.addOperationalLayer(layer)
             }
         }
-        // photos: the most local source whose area holds the place, only close to the ground (every layer costs speed)
-        // today's close photos stay only where the year has none of its own
+        // the official photos are only a backup of the satellite pictures (Satellite.swift): their maker is named close up
         let near = distance < 20_000 && picture == nil
             ? Array(Self.sources.filter { $0.covers(latitude: latitude, longitude: longitude) }.prefix(1)) : []
-        for (id, layer) in photos where !near.contains(where: { $0.id == id }) {
-            scene.removeOperationalLayer(layer)
-            photos[id] = nil
-        }
-        // the most local source is added last: it lies on top
-        for source in near.reversed() where photos[source.id] == nil {
-            guard let layer = source.layer() else { continue }
-            photos[source.id] = layer
-            scene.addOperationalLayer(layer)
-        }
         let ids = Set(wanted.map(\.url))
         for (id, layer) in models where !ids.contains(id) {
             scene.removeOperationalLayer(layer)
@@ -179,7 +163,7 @@ final class SceneHolder: ObservableObject {
         }
         names?.isVisible = placeNames && distance > 40_000
         shownModels = wanted.map { "\($0.title)\($0.owner.map { " · \($0)" } ?? "")" }
-        shownPhotos = near.map(\.credit) + [picture?.credit, year.map { _ in "Buildings: OpenHistoricalMap" }].compactMap { $0 }
+        shownPhotos = (picture == nil ? ["Powered by Esri"] : []) + near.map { "Where Esri fails: \($0.credit)" } +[picture?.credit, year.map { _ in "Buildings: OpenHistoricalMap" }].compactMap { $0 }
     }
 }
 

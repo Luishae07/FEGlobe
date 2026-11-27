@@ -55,41 +55,18 @@ import kotlin.time.Duration.Companion.seconds
 
 /** The scene and what lies on it for the place looked at. */
 class SceneHolder(private val aerial: List<AerialSource>) {
-    // Sentinel-2 cloudless 2016 by EOX (CC BY 4.0): no key needed
-    val scene = ArcGISScene(Basemap(WebTiledLayer.create("https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{level}/{row}/{col}.jpg"))).apply {
+    // Esri World Imagery (Satellite.kt); below it Sentinel-2 cloudless 2016 by EOX (CC BY 4.0), seen where a picture does not come
+    private val satellite = Basemap(WebTiledLayer.create("https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{level}/{row}/{col}.jpg")).apply {
+        baseLayers.add(Satellite.layer(aerial))
+    }
+    val scene = ArcGISScene(satellite).apply {
         baseSurface = Surface().apply {
             elevationSources.add(ArcGISTiledElevationSource("https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer"))
         }
     }
-    private val photos = mutableMapOf<String, Layer>()
     private val shown = mutableMapOf<String, Layer>()
     private val names by lazy {
         WebTiledLayer.create("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Reference_Labels/default/GoogleMapsCompatible_Level9/{level}/{row}/{col}.png")
-    }
-
-    // the German states, whose slow map services are not asked directly: mesh.flowsearch.org keeps their tiles on its disk
-    private val kept = setOf("berlin2024", "saarland-nrw", "brandenburg", "saxony", "thuringia", "saxony-anhalt", "hesse",
-        "rhineland", "bavaria", "lower-saxony", "mecklenburg")
-
-    private fun layer(source: AerialSource): Layer? {
-        val template = source.template
-        if (source.id in kept) {
-            return WebTiledLayer.create("https://mesh.flowsearch.org/dop/${source.id}/{level}/{col}/{row}.png")
-        }
-        if (template.contains("{z}")) {
-            return WebTiledLayer.create(template.replace("{z}", "{level}").replace("{y}", "{row}").replace("{x}", "{col}"))
-        }
-        if (template.contains("exportImage")) { // USGS: the same photos as a tiled service
-            return WebTiledLayer.create("https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{level}/{row}/{col}")
-        }
-        // a map service (WMS): its address without the parts of one request, and the name of its layer
-        val parts = template.split("?", limit = 2)
-        if (parts.size < 2) return null
-        val own = setOf("SERVICE", "VERSION", "REQUEST", "LAYERS", "STYLES", "CRS", "BBOX", "WIDTH", "HEIGHT", "FORMAT", "TRANSPARENT")
-        val pairs = parts[1].split("&")
-        val name = pairs.firstOrNull { it.startsWith("LAYERS=") }?.removePrefix("LAYERS=") ?: return null
-        val rest = pairs.filter { it.substringBefore("=") !in own }.joinToString("&")
-        return WmsLayer(if (rest.isEmpty()) parts[0] else parts[0] + "?" + rest, listOf(name))
     }
 
     // the past: a photo of the year, and buildings raised to their height (measured: orange, guessed: grey)
@@ -153,15 +130,8 @@ class SceneHolder(private val aerial: List<AerialSource>) {
             past = picture?.let { it.id to pastLayer(it) }
             past?.let { scene.operationalLayers.add(0, it.second) }
         }
-        // today's close photos stay only where the year has none of its own
+        // the official photos are only a backup of the satellite pictures (Satellite.kt): their maker is named close up
         val near = if (camera.distance < 20_000 && picture == null) aerial.filter { it.covers(camera.latitude, camera.longitude) }.take(1) else emptyList()
-        photos.keys.filter { id -> near.none { it.id == id } }.forEach { id -> photos.remove(id)?.let { scene.operationalLayers.remove(it) } }
-        near.filter { it.id !in photos }.forEach { source ->
-            layer(source)?.let {
-                photos[source.id] = it
-                scene.operationalLayers.add(it)
-            }
-        }
         // the 3D models show today: not in the past
         val model = if (camera.distance < 5_000 && year == null) {
             models.firstOrNull { it.tiles3d && it.covers(camera.latitude, camera.longitude) }
@@ -176,7 +146,8 @@ class SceneHolder(private val aerial: List<AerialSource>) {
         val wantNames = placeNames && camera.distance > 40_000
         if (wantNames && names !in scene.operationalLayers) scene.operationalLayers.add(names)
         if (!wantNames && names in scene.operationalLayers) scene.operationalLayers.remove(names)
-        return listOfNotNull(picture?.credit, year?.let { "Buildings: OpenHistoricalMap" }, model?.let { "${it.title} · ${it.owner}" }) + near.map { it.credit }
+        return listOfNotNull(picture?.credit, year?.let { "Buildings: OpenHistoricalMap" }, model?.let { "${it.title} · ${it.owner}" }) +
+            (if (picture == null) listOf("Powered by Esri") else emptyList()) + near.map { "Where Esri fails: ${it.credit}" }
     }
 }
 

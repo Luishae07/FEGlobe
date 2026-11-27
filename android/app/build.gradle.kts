@@ -5,6 +5,7 @@ plugins {
 
 // secrets come from the environment of the build, they are not in the repository
 val arcgisLicense: String = System.getenv("ARCGIS_LICENSE") ?: ""
+val atlasTileNumber: String = System.getenv("ATLAS_TILE_NUMBER") ?: "" // signs the apps' requests for satellite pictures
 val keystore: String? = System.getenv("ATLAS_KEYSTORE")
 
 android {
@@ -14,9 +15,10 @@ android {
         applicationId = "org.flowsearch.atlas"
         minSdk = 28
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
         buildConfigField("String", "ARCGIS_LICENSE", "\"$arcgisLicense\"")
+        buildConfigField("String", "ATLAS_TILE_NUMBER", "\"$atlasTileNumber\"")
         // arm64: phones of today, which keeps the file small; -PatlasAbi=x86_64 builds one for an emulator on a PC
         ndk { abiFilters += ((findProperty("atlasAbi") as String?) ?: "arm64-v8a").split(",") } // or several, with commas
     }

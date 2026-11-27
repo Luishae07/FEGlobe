@@ -9,6 +9,8 @@ export GRADLE_USER_HOME="${GRADLE_USER_HOME:-/media/data/android-sdk/gradle}"
 GRADLE="${GRADLE:-/media/data/fullmapmod/gradle-9.8.2/bin/gradle}"
 [ -n "$ARCGIS_LICENSE" ] || ARCGIS_LICENSE="$(cat /srv/secrets/arcgis_license)"
 export ARCGIS_LICENSE
+[ -n "$ATLAS_TILE_NUMBER" ] || ATLAS_TILE_NUMBER="$(cat /srv/secrets/atlas_tile_number 2>/dev/null || true)"
+export ATLAS_TILE_NUMBER # without it the app is built without Esri pictures
 export ATLAS_KEYSTORE="${ATLAS_KEYSTORE:-/srv/secrets/atlas_android.keystore}"
 [ -n "$ATLAS_KEYSTORE_PASSWORD" ] || ATLAS_KEYSTORE_PASSWORD="$(cat /srv/secrets/atlas_android.password)"
 export ATLAS_KEYSTORE_PASSWORD

@@ -16,6 +16,7 @@ You need your own ArcGIS licence string (free Lite level, from Esri). Write it i
 
 ```swift
 let arcgisLicense = "runtimelite,..."
+let atlasTileNumber = "" // signs requests for the Esri satellite pictures of flowsearch.org; empty: Sentinel-2 only
 ```
 
 Then: `brew install xcodegen`, `xcodegen`, open `Atlas.xcodeproj` and run.
