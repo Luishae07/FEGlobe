@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 package org.flowsearch.atlas
 
+import com.arcgismaps.arcgisservices.LevelOfDetail
 import com.arcgismaps.geometry.Envelope
 import com.arcgismaps.geometry.Point
 import com.arcgismaps.geometry.SpatialReference
 import com.arcgismaps.mapping.layers.CustomTiledLayer
-import com.arcgismaps.mapping.layers.LevelOfDetail
 import com.arcgismaps.mapping.layers.TileImageFormat
 import com.arcgismaps.mapping.layers.TileInfo
 import kotlinx.coroutines.Dispatchers

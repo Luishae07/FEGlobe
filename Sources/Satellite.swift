@@ -49,8 +49,9 @@ enum Satellite {
         let levels = (0...18).map { LevelOfDetail(level: $0, resolution: 156543.03392804097 / Double(1 << $0), scale: 591657527.591555 / Double(1 << $0)) }
         let info = TileInfo(dpi: 96, format: .mixed, levelsOfDetail: levels, origin: Point(x: -edge, y: edge, spatialReference: .webMercator),
                             spatialReference: .webMercator, tileHeight: 256, tileWidth: 256)
-        let layer = CustomTiledLayer(tileInfo: info,
-                                     fullExtent: Envelope(xMin: -edge, yMin: -edge, xMax: edge, yMax: edge, spatialReference: .webMercator)) { key in
+        // Esri's credit is shown by the globe (ArcGISGlobe.swift): this layer's own one cannot be set here
+        return CustomTiledLayer(tileInfo: info,
+                                fullExtent: Envelope(xMin: -edge, yMin: -edge, xMax: edge, yMax: edge, spatialReference: .webMercator)) { key in
             do {
                 return try await esri(level: key.level, row: key.row, column: key.column)
             } catch {
@@ -58,7 +59,5 @@ enum Satellite {
                 return try await official(sources, level: key.level, row: key.row, column: key.column)
             }
         }
-        layer.attribution = "Powered by Esri. Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-        return layer
     }
 }

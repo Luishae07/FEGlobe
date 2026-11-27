@@ -163,7 +163,7 @@ final class SceneHolder: ObservableObject {
         }
         names?.isVisible = placeNames && distance > 40_000
         shownModels = wanted.map { "\($0.title)\($0.owner.map { " · \($0)" } ?? "")" }
-        let satellite = (picture == nil ? ["Powered by Esri"] : []) + near.map { "Where Esri fails: \($0.credit)" }
+        let satellite = (picture == nil ? ["Powered by Esri · Esri, Maxar, Earthstar Geographics, and the GIS User Community"] : []) + near.map { "Where Esri fails: \($0.credit)" }
         shownPhotos = satellite + [picture?.credit, year.map { _ in "Buildings: OpenHistoricalMap" }].compactMap { $0 }
     }
 }
