@@ -67,8 +67,15 @@ class SceneHolder(private val aerial: List<AerialSource>) {
         WebTiledLayer.create("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Reference_Labels/default/GoogleMapsCompatible_Level9/{level}/{row}/{col}.png")
     }
 
+    // the German states, whose slow map services are not asked directly: mesh.flowsearch.org keeps their tiles on its disk
+    private val kept = setOf("berlin2024", "saarland-nrw", "brandenburg", "saxony", "thuringia", "saxony-anhalt", "hesse",
+        "rhineland", "bavaria", "lower-saxony", "mecklenburg")
+
     private fun layer(source: AerialSource): Layer? {
         val template = source.template
+        if (source.id in kept) {
+            return WebTiledLayer.create("https://mesh.flowsearch.org/dop/${source.id}/{level}/{col}/{row}.png")
+        }
         if (template.contains("{z}")) {
             return WebTiledLayer.create(template.replace("{z}", "{level}").replace("{y}", "{row}").replace("{x}", "{col}"))
         }

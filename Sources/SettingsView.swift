@@ -111,7 +111,7 @@ struct LicencesView: View {
             }
             Section("Pictures and terrain") {
                 Text("Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0")
-                Text("Close up: aerial photos of the government services named on the screen.")
+                Text("Close up: aerial photos of the government services named on the screen; German ones come through mesh.flowsearch.org, which keeps copies.")
                 Text("Names: NASA GIBS. Terrain: Esri World Elevation.")
                 Text("App icon: Natural Earth (public domain).")
             }

@@ -72,7 +72,7 @@ fun SettingsPage(
                 "This app: MPL-2.0. Source: github.com/Luishae07/FEGlobe",
                 "ArcGIS Maps SDK for Kotlin: Esri's own licence (not open source). MapLibre Native: BSD.",
                 "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0",
-                "Close up: aerial photos of the government services named on the screen. Names: NASA GIBS. Terrain: Esri World Elevation.",
+                "Close up: aerial photos of the government services named on the screen; German ones come through mesh.flowsearch.org, which keeps copies. Names: NASA GIBS. Terrain: Esri World Elevation.",
                 "Place search: Nominatim, data © OpenStreetMap contributors (ODbL). App icon: Natural Earth (public domain).",
                 "Street photos: Panoramax (panoramax.fr); each photo names its author and licence.",
                 "The 3D models belong to their owners, named on the screen: mesh.flowsearch.org",

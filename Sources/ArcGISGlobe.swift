@@ -14,8 +14,15 @@ struct AerialSource: Decodable {
         box.count == 4 && longitude >= box[0] && longitude <= box[2] && latitude >= box[1] && latitude <= box[3]
     }
 
+    /// the German states, whose slow map services are not asked directly: mesh.flowsearch.org keeps their tiles on its disk
+    private static let kept: Set<String> = ["berlin2024", "saarland-nrw", "brandenburg", "saxony", "thuringia", "saxony-anhalt", "hesse",
+                                            "rhineland", "bavaria", "lower-saxony", "mecklenburg"]
+
     /// the source as an ArcGIS layer: a tiled service, or a map service (WMS)
     func layer() -> Layer? {
+        if Self.kept.contains(id) {
+            return WebTiledLayer(urlTemplate: "https://mesh.flowsearch.org/dop/\(id)/{level}/{col}/{row}.png")
+        }
         if template.contains("{z}") {
             let address = template.replacingOccurrences(of: "{z}", with: "{level}").replacingOccurrences(of: "{y}", with: "{row}")
                 .replacingOccurrences(of: "{x}", with: "{col}")
