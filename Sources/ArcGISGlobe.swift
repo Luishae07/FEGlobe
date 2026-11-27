@@ -183,6 +183,14 @@ struct ArcGISGlobe: View {
         var task: Task<Void, Never>?
     }
 
+    /// the short credit at the bottom: Esri's comes first while its pictures are shown; everything else is behind the ⓘ
+    private var footer: String {
+        let photo = holder.shownPhotos.first
+        let satellite = photo?.hasPrefix("Powered by Esri") ?? true
+        let other = holder.shownModels.first ?? (satellite ? nil : photo)
+        return [satellite ? "Powered by Esri" : nil, other].compactMap { $0 }.joined(separator: " · ")
+    }
+
     var body: some View {
         SceneViewReader { proxy in
             SceneView(scene: holder.scene, graphicsOverlays: holder.overlays)
@@ -219,7 +227,7 @@ struct ArcGISGlobe: View {
             Button {
                 showCredits = true
             } label: {
-                Text("© \(holder.shownModels.first ?? holder.shownPhotos.first ?? "Sentinel-2 by EOX")  ⓘ")
+                Text("© \(footer)  ⓘ")
                     .font(.system(size: 9))
                     .lineLimit(1)
                     .foregroundStyle(.white.opacity(0.85))
